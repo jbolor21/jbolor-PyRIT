@@ -221,8 +221,8 @@ class PsychosocialHarmsScenario(Scenario):
         super().__init__(
             name="Psychosocial Harms Scenario",
             version=self.version,
-            objective_scorer_identifier=self._objective_scorer.get_identifier(),
             strategy_class=PsychosocialHarmsStrategy,
+            objective_scorer=self._objective_scorer,
             scenario_result_id=scenario_result_id,
         )
         self._objectives_by_harm = objectives_by_harm
@@ -475,8 +475,8 @@ class PsychosocialHarmsScenario(Scenario):
             for seed in seed_group.seeds:
                 if isinstance(seed, SeedObjective):
                     # Create a new SeedGroup with this objective
+                    # The SeedObjective is already in the seeds list, so no need to set it separately
                     new_group = SeedGroup(seeds=[seed])
-                    new_group.set_objective(seed.value)
                     strategy_seed_groups_with_objectives.append(new_group)
 
         # Determine which attacks to create based on attack_type

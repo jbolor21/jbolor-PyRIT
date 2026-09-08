@@ -247,7 +247,7 @@ function ManualScorePopover({
           />
         </PopoverTrigger>
       </Tooltip>
-      <PopoverSurface className={styles.manualScorePopover}>
+      <PopoverSurface className={styles.manualScorePopover} data-testid="manual-score-popover">
         <Text weight="semibold">Manual score</Text>
         <Field label="Score type" required>
           <RadioGroup
@@ -279,6 +279,7 @@ function ManualScorePopover({
               validationMessage={value && !isValueValid ? 'Enter a number from 0 to 1.' : undefined}
             >
               <Input
+                className={styles.manualScoreInput}
                 type="number"
                 min={0}
                 max={1}
@@ -297,7 +298,7 @@ function ManualScorePopover({
               >
                 <div className={styles.thresholdControls}>
                   <Input
-                    className={styles.thresholdInput}
+                    className={mergeClasses(styles.manualScoreInput, styles.thresholdInput)}
                     type="number"
                     min={0}
                     max={1}
@@ -330,10 +331,20 @@ function ManualScorePopover({
         </Field>
         {error && <Text role="alert">{error}</Text>}
         <div className={styles.manualScoreActions}>
-          <Button appearance="secondary" onClick={() => setIsOpen(false)} disabled={isSaving}>
+          <Button
+            appearance="secondary"
+            className={styles.manualScoreActionButton}
+            onClick={() => setIsOpen(false)}
+            disabled={isSaving}
+          >
             Cancel
           </Button>
-          <Button appearance="primary" onClick={handleSave} disabled={!isFormValid || isSaving}>
+          <Button
+            appearance="primary"
+            className={styles.manualScoreActionButton}
+            onClick={handleSave}
+            disabled={!isFormValid || isSaving}
+          >
             {isSaving ? 'Saving...' : 'Save'}
           </Button>
         </div>

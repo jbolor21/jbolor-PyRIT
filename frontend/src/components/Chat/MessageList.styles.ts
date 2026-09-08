@@ -113,11 +113,20 @@ export const useMessageListStyles = makeStyles({
     flexDirection: 'column',
     gap: tokens.spacingVerticalS,
     width: 'min(320px, calc(100vw - 32px))',
+    maxHeight: 'calc(100vh - 32px)',
+    overflowY: 'auto',
   },
   manualScoreActions: {
     display: 'flex',
     justifyContent: 'flex-end',
+    flexWrap: 'wrap',
     gap: tokens.spacingHorizontalS,
+  },
+  manualScoreActionButton: {
+    ...mobileTouchTargetHeight,
+  },
+  manualScoreInput: {
+    ...mobileTouchTargetHeight,
   },
   thresholdControls: {
     display: 'flex',

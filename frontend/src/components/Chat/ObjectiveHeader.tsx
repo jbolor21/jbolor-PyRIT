@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 import {
   Badge,
@@ -22,22 +22,15 @@ interface ObjectiveHeaderProps {
 
 export default function ObjectiveHeader({ objective, canAdd = false, onAdd, editRequestId = 0 }: ObjectiveHeaderProps) {
   const styles = useObjectiveHeaderStyles()
+  const promptedForManualScore = editRequestId > 0 && !objective && Boolean(onAdd)
   const [expanded, setExpanded] = useState(false)
   const [overflowing, setOverflowing] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useState(promptedForManualScore)
   const [draft, setDraft] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
-  const [showManualScoreWarning, setShowManualScoreWarning] = useState(false)
+  const [showManualScoreWarning, setShowManualScoreWarning] = useState(promptedForManualScore)
   const contentRef = useRef<HTMLElement>(null)
-
-  useEffect(() => {
-    if (editRequestId > 0 && !objective && onAdd) {
-      setError('')
-      setShowManualScoreWarning(true)
-      setIsEditing(true)
-    }
-  }, [editRequestId, objective, onAdd])
 
   useLayoutEffect(() => {
     const content = contentRef.current
@@ -98,12 +91,19 @@ export default function ObjectiveHeader({ objective, canAdd = false, onAdd, edit
                 aria-label="Attack objective"
                 autoFocus
               />
-              <Button appearance="primary" size="small" onClick={handleSave} disabled={!draft.trim() || isSaving}>
+              <Button
+                appearance="primary"
+                size="small"
+                className={styles.editorAction}
+                onClick={handleSave}
+                disabled={!draft.trim() || isSaving}
+              >
                 {isSaving ? 'Saving...' : 'Save'}
               </Button>
               <Button
                 appearance="subtle"
                 size="small"
+                className={styles.editorAction}
                 onClick={() => {
                   setIsEditing(false)
                   setShowManualScoreWarning(false)

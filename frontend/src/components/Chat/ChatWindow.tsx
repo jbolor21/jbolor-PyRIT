@@ -898,7 +898,7 @@ export default function ChatWindow({
           </div>
         </div>
         <ObjectiveHeader
-          key={`${attackResultId ?? 'new'}-${objective}-${pendingObjective}`}
+          key={`${attackResultId ?? 'new'}-${objective}-${pendingObjective}-${objectiveEditRequestId}`}
           objective={objective || pendingObjective}
           canAdd={
             Boolean(activeTarget)

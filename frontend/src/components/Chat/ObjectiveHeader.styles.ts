@@ -1,6 +1,11 @@
 import { makeStyles, tokens } from '@fluentui/react-components'
 
-import { NARROW_VIEWPORT_QUERY, mobileTouchTargetHeight } from '../../styles/touchTargets'
+import {
+  MINIMUM_TOUCH_TARGET_SIZE,
+  NARROW_VIEWPORT_QUERY,
+  TOUCH_INPUT_QUERY,
+  mobileTouchTargetHeight,
+} from '../../styles/touchTargets'
 
 export const useObjectiveHeaderStyles = makeStyles({
   root: {
@@ -44,6 +49,11 @@ export const useObjectiveHeaderStyles = makeStyles({
     flexGrow: 1,
     minWidth: 0,
     ...mobileTouchTargetHeight,
+    '& input': {
+      [TOUCH_INPUT_QUERY]: {
+        minHeight: MINIMUM_TOUCH_TARGET_SIZE,
+      },
+    },
     [NARROW_VIEWPORT_QUERY]: {
       flexBasis: '100%',
       order: 2,

@@ -392,6 +392,33 @@ test.beforeEach(async ({ page }) => {
 test.describe("Mobile touch targets", () => {
   test.use({ viewport: MOBILE_VIEWPORT, hasTouch: true });
 
+  test("keeps the empty-chat objective editor usable on a narrow screen", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Targets", exact: true }).click();
+    await expect(page.getByText("gpt-4o-mobile")).toBeVisible();
+    await page.getByRole("button", { name: "Set Active" }).first().click();
+    await page.getByRole("button", { name: "Chat", exact: true }).click();
+
+    await page.getByRole("button", { name: "Add objective" }).click();
+    const objectiveInput = page.getByRole("textbox", {
+      name: "Attack objective",
+    });
+    await expectMinimumTouchTarget(objectiveInput);
+    await objectiveInput.fill(
+      "Evaluate whether the response satisfies this mobile attack objective"
+    );
+    await expectMinimumTouchTarget(
+      page.getByRole("button", { name: "Save" })
+    );
+    await expectMinimumTouchTarget(
+      page.getByRole("button", { name: "Cancel" })
+    );
+    await expectNoDocumentOverflow(page);
+  });
+
   test("keeps Home, Targets, and History controls at least 44px", async ({
     page,
   }) => {

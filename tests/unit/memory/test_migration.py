@@ -222,9 +222,7 @@ def test_attack_result_score_migration_backfills_automated_score() -> None:
 
                 columns = {column["name"] for column in inspect(connection).get_columns("AttackResultEntries")}
                 row = connection.execute(
-                    text(
-                        'SELECT automated_score_id, human_score_id FROM "AttackResultEntries" WHERE id = :id'
-                    ),
+                    text('SELECT automated_score_id, human_score_id FROM "AttackResultEntries" WHERE id = :id'),
                     {"id": attack_id},
                 ).one()
 

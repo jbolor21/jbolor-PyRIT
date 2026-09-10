@@ -1740,9 +1740,7 @@ class TestScoreRoutes:
             )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert response.json()["detail"] == (
-            f"Message '{message_id}' does not belong to attack '{attack_result_id}'"
-        )
+        assert response.json()["detail"] == (f"Message '{message_id}' does not belong to attack '{attack_result_id}'")
         mock_manual_scorer_class.assert_not_called()
 
 

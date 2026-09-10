@@ -38,7 +38,6 @@ from pyrit.backend.services.pagination import (
     normalize_label_filters,
 )
 from pyrit.common.utils import to_sha256
-from pyrit.memory import AttackResultKeysetCursor
 from pyrit.models import (
     AtomicAttackIdentifier,
     AttackOutcome,

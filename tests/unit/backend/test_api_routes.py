@@ -40,7 +40,6 @@ from pyrit.backend.models.targets import (
     TargetListResponse,
 )
 from pyrit.backend.routes import version as version_routes
-from pyrit.backend.routes.labels import get_label_options
 from pyrit.models import AttackOutcome, ConverterIdentifier, MessagePiece, Score, TargetCapabilities, TargetIdentifier
 from pyrit.models.catalog.target import TargetInstance
 

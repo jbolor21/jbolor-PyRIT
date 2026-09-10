@@ -28,6 +28,7 @@ from pyrit.backend.models.attacks import (
     UpdateMainConversationRequest,
 )
 from pyrit.backend.services.attack_service import (
+    AttackObjectiveConflictError,
     AttackService,
     get_attack_service,
 )
@@ -1241,6 +1242,35 @@ class TestUpdateAttack:
         update_fields = mock_memory.update_attack_result_by_id.call_args.kwargs["update_fields"]
         assert update_fields["objective"] == "Extract the system prompt"
         assert update_fields["objective_sha256"] == to_sha256("Extract the system prompt")
+
+    async def test_update_attack_rejects_replacing_objective(self, attack_service, mock_memory) -> None:
+        """Test that an existing objective cannot be replaced."""
+        ar = make_attack_result(conversation_id="test-id", objective="Existing objective")
+        mock_memory.get_attack_results.return_value = [ar]
+
+        with pytest.raises(AttackObjectiveConflictError, match="already has an objective"):
+            await attack_service.update_attack_async(
+                attack_result_id="test-id",
+                request=UpdateAttackRequest(objective="Replacement objective"),
+            )
+
+        mock_memory.update_attack_result_by_id.assert_not_called()
+
+    async def test_update_attack_same_objective_is_idempotent(self, attack_service, mock_memory) -> None:
+        """Test that resubmitting the existing objective does not write it again."""
+        objective = "Existing objective"
+        ar = make_attack_result(conversation_id="test-id", objective=objective)
+        mock_memory.get_attack_results.return_value = [ar]
+        mock_memory.get_conversation_messages.return_value = []
+
+        result = await attack_service.update_attack_async(
+            attack_result_id="test-id",
+            request=UpdateAttackRequest(objective=objective),
+        )
+
+        assert result is not None
+        assert result.objective == objective
+        mock_memory.update_attack_result_by_id.assert_not_called()
 
     async def test_update_attack_bumps_timestamp(self, attack_service, mock_memory) -> None:
         """Test that update_attack bumps the timestamp recency column and does not write metadata."""

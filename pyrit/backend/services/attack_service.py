@@ -82,6 +82,10 @@ from pyrit.prompt_normalizer import ConverterConfiguration, PromptNormalizer
 logger = logging.getLogger(__name__)
 
 
+class AttackObjectiveConflictError(Exception):
+    """The attack already has a different objective."""
+
+
 class AttackService:
     """
     Service for managing attacks.
@@ -446,8 +450,14 @@ class AttackService:
             }
             update_fields["outcome"] = outcome_map[request.outcome].value
         if request.objective is not None:
-            update_fields["objective"] = request.objective
-            update_fields["objective_sha256"] = to_sha256(request.objective)
+            existing_objective = results[0].objective
+            if existing_objective and existing_objective != request.objective:
+                raise AttackObjectiveConflictError(f"Attack '{attack_result_id}' already has an objective")
+            if not existing_objective:
+                update_fields["objective"] = request.objective
+                update_fields["objective_sha256"] = to_sha256(request.objective)
+            elif request.outcome is None:
+                return await self.get_attack_async(attack_result_id=attack_result_id)
 
         self._memory.update_attack_result_by_id(
             attack_result_id=attack_result_id,

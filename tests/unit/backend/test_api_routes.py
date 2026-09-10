@@ -40,6 +40,7 @@ from pyrit.backend.models.targets import (
     TargetListResponse,
 )
 from pyrit.backend.routes import version as version_routes
+from pyrit.backend.services.attack_service import AttackObjectiveConflictError
 from pyrit.models import AttackOutcome, ConverterIdentifier, MessagePiece, Score, TargetCapabilities, TargetIdentifier
 from pyrit.models.catalog.target import TargetInstance
 
@@ -338,6 +339,21 @@ class TestAttackRoutes:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["objective"] == "Extract the system prompt"
+
+    def test_update_attack_objective_conflict(self, client: TestClient) -> None:
+        """Test replacing an existing objective returns 409."""
+        with patch("pyrit.backend.routes.attacks.get_attack_service") as mock_get_service:
+            mock_get_service.return_value.update_attack_async = AsyncMock(
+                side_effect=AttackObjectiveConflictError("Attack 'ar-attack-1' already has an objective")
+            )
+
+            response = client.patch(
+                "/api/attacks/ar-attack-1",
+                json={"objective": "Replace the objective"},
+            )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.json()["detail"] == "Attack 'ar-attack-1' already has an objective"
 
     def test_add_message_success(self, client: TestClient) -> None:
         """Test adding a message to an attack."""

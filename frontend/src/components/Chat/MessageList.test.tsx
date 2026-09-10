@@ -117,7 +117,7 @@ describe("MessageList", () => {
     expect(screen.getByText("Assistant message test")).toBeInTheDocument();
   });
 
-  it("should submit a float manual score for a persisted message piece", async () => {
+  it("should submit a manual score and update the attack when selected", async () => {
     const user = userEvent.setup();
     const onManualScore = jest.fn().mockResolvedValue(undefined);
     const messages: Message[] = [
@@ -146,26 +146,16 @@ describe("MessageList", () => {
     const messageActions = screen.getByTestId("message-actions-0");
     await user.click(within(messageActions).getByRole("button", { name: "Add manual score" }));
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-    await user.click(screen.getByRole("radio", { name: "Float scale" }));
-    await user.clear(screen.getByLabelText("Manual score value"));
-    await user.type(screen.getByLabelText("Manual score value"), "0.33");
-    expect(screen.getByLabelText("Success threshold")).toHaveValue(0.5);
-    await user.clear(screen.getByLabelText("Success threshold"));
-    await user.type(screen.getByLabelText("Success threshold"), "0.4");
-    expect(screen.getByRole("slider", { name: "Success threshold slider" })).toHaveValue("0.4");
-    fireEvent.change(screen.getByRole("slider", { name: "Success threshold slider" }), {
-      target: { value: "0.6" },
-    });
-    expect(screen.getByLabelText("Success threshold")).toHaveValue(0.6);
-    await user.type(screen.getByLabelText("Rationale (optional)"), "Partially satisfied");
+    await user.click(screen.getByRole("radio", { name: "Yes" }));
+    expect(screen.getByRole("checkbox", { name: "Update attack score and outcome" })).toBeChecked();
+    await user.type(screen.getByLabelText("Rationale (optional)"), "Objective achieved");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(onManualScore).toHaveBeenCalledWith("piece-manual", {
-        score_type: "float_scale",
-        value: 0.33,
-        success_threshold: 0.6,
-        rationale: "Partially satisfied",
+        value: true,
+        rationale: "Objective achieved",
+        update_attack: true,
       });
     });
     expect(screen.queryByText("Manual score")).not.toBeInTheDocument();
@@ -198,16 +188,15 @@ describe("MessageList", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Add manual score" }));
-    await user.click(screen.getByRole("radio", { name: "True / false" }));
-    await user.click(screen.getByRole("radio", { name: "True" }));
+    await user.click(screen.getByRole("radio", { name: "No" }));
     await user.type(screen.getByLabelText("Rationale (optional)"), "Objective achieved");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(onManualScore).toHaveBeenCalledWith("piece-manual", {
-        score_type: "true_false",
-        value: true,
+        value: false,
         rationale: "Objective achieved",
+        update_attack: true,
       });
     });
   });

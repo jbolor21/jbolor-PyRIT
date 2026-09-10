@@ -47,7 +47,7 @@ class ScoreView(Score):
 
     is_objective_score: bool = Field(
         default=False,
-        description="Whether this is the score referenced by AttackResult.last_score.",
+        description="Whether this is the effective objective score referenced by AttackResult.last_score.",
     )
 
     @computed_field  # type: ignore[prop-decorator]
@@ -211,14 +211,15 @@ class AttackSummary(AttackResult):
     API view of a ``pyrit.models.AttackResult``.
 
     Inherits every canonical attack-result field (including ``last_response``,
-    ``last_score`` and ``retry_events``) and adds presentation data: computed
+    score fields, and ``retry_events``) and adds presentation data: computed
     projections of the strategy identifier plus mapper-populated conversation
-    stats. ``last_response`` / ``last_score`` are narrowed to their view types so
+    stats. ``last_response`` and score fields are narrowed to their view types so
     their presentation fields serialize.
     """
 
     last_response: MessagePieceView | None = None
-    last_score: ScoreView | None = None
+    automated_score: ScoreView | None = None
+    human_score: ScoreView | None = None
 
     # Mapper-populated presentation fields (need external stats / metadata).
     message_count: int = Field(default=0, description="Total number of messages in the attack")
@@ -229,6 +230,12 @@ class AttackSummary(AttackResult):
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), description="Last update timestamp"
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def last_score(self) -> ScoreView | None:
+        """The human score when present, otherwise the automated score."""
+        return self.human_score or self.automated_score
 
     @field_serializer("related_conversations")
     def _serialize_related_conversations(

@@ -38,7 +38,7 @@ def _attack(*, outcome=AttackOutcome.SUCCESS, objective="obj", turns=1, with_sco
         executed_turns=turns,
     )
     if with_score:
-        attack.last_score = Score(
+        attack.automated_score = Score(
             score_value="0.9",
             score_type="float_scale",
             message_piece_id=str(uuid.uuid4()),

@@ -303,6 +303,9 @@ export interface AttackSummary {
   target?: TargetInfo | null
   converters: string[]
   outcome?: 'undetermined' | 'success' | 'failure' | 'error' | null
+  automated_score?: BackendScore | null
+  human_score?: BackendScore | null
+  last_score?: BackendScore | null
   last_message_preview?: string | null
   message_count: number
   related_conversation_ids: string[]
@@ -348,23 +351,11 @@ export interface BackendScore {
   timestamp: string
 }
 
-export type ManualScoreType = 'true_false' | 'float_scale'
-
-interface ManualScoreBase {
+export interface ManualScoreInput {
+  value: boolean
   rationale: string
+  update_attack: boolean
 }
-
-export type ManualScoreInput = ManualScoreBase & (
-  | {
-    score_type: 'true_false'
-    value: boolean
-  }
-  | {
-    score_type: 'float_scale'
-    value: number
-    success_threshold: number
-  }
-)
 
 export type ManualScoreRequest = ManualScoreInput & {
   attack_result_id: string

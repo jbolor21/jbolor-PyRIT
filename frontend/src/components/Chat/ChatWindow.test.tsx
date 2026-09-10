@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import ChatWindow from "./ChatWindow";
 import { makeTarget } from "@/test-utils/targetFixtures";
 import { Message, MessageAttachment, TargetCapabilities, TargetInfo, TargetInstance } from "../../types";
-import { attacksApi, convertersApi } from "../../services/api";
+import { attacksApi, convertersApi, scoresApi } from "../../services/api";
 import * as messageMapper from "../../utils/messageMapper";
 
 const buildCapabilities = (
@@ -59,6 +59,7 @@ jest.mock("../../utils/messageMapper", () => ({
 
 const mockedAttacksApi = attacksApi as jest.Mocked<typeof attacksApi>;
 const mockedConvertersApi = convertersApi as jest.Mocked<typeof convertersApi>;
+const mockedScoresApi = scoresApi as jest.Mocked<typeof scoresApi>;
 const mockedMapper = messageMapper as jest.Mocked<typeof messageMapper>;
 const MARKDOWN_PREFERENCE_STORAGE_KEY = "pyrit.chatMarkdownMode";
 
@@ -326,6 +327,62 @@ describe("ChatWindow Integration", () => {
     expect(screen.getByTestId("target-badge")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /new attack/i })).toBeInTheDocument();
     expect(screen.getByRole("textbox")).toBeInTheDocument();
+  });
+
+  it("should include the loaded attack ID when scoring a forked conversation", async () => {
+    const user = userEvent.setup();
+    const messages: Message[] = [
+      {
+        role: "assistant",
+        content: "Forked response",
+        timestamp: "2026-01-01T00:00:01Z",
+        displayPieces: [
+          {
+            type: "text",
+            pieceId: "forked-piece",
+            pieceIndex: 0,
+            content: "Forked response",
+            scores: [],
+          },
+        ],
+      },
+    ];
+    mockedAttacksApi.getMessages.mockResolvedValue(makeTextResponse("Forked response") as never);
+    mockedMapper.backendMessagesToFrontend.mockReturnValue(messages);
+    mockedScoresApi.createManualScore.mockResolvedValue({
+      id: "manual-score-id",
+      message_piece_id: "forked-piece",
+      scorer_type: "ManualScorer",
+      score_type: "true_false",
+      score_value: "True",
+      timestamp: "2026-01-01T00:00:02Z",
+    });
+
+    render(
+      <TestWrapper>
+        <ChatWindow
+          {...defaultProps}
+          attackResultId="attack-result-id"
+          conversationId="primary-conversation-id"
+          activeConversationId="forked-conversation-id"
+          objective="Evaluate the response"
+        />
+      </TestWrapper>
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Add manual score" }));
+    await user.click(screen.getByRole("radio", { name: "Yes" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(mockedScoresApi.createManualScore).toHaveBeenCalledWith({
+        attack_result_id: "attack-result-id",
+        message_id: "forked-piece",
+        value: true,
+        rationale: "",
+        update_attack: true,
+      });
+    });
   });
 
   it("shows a safe scenario-run breadcrumb only when provenance is present", () => {

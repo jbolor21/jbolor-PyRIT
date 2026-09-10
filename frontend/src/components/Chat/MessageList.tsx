@@ -7,8 +7,8 @@ import {
   MessageBarBody,
   Button,
   Badge,
+  Checkbox,
   Field,
-  Input,
   Menu,
   MenuItem,
   MenuList,
@@ -19,7 +19,6 @@ import {
   PopoverTrigger,
   Radio,
   RadioGroup,
-  Slider,
   Tab,
   TabList,
   Tooltip,
@@ -42,7 +41,6 @@ import MarkdownContent from '@/components/Markdown/MarkdownContent'
 import type {
   DisplayScore,
   ManualScoreInput,
-  ManualScoreType,
   Message,
   MessageAttachment,
   MessageDisplayPiece,
@@ -148,27 +146,12 @@ function ManualScorePopover({
 }: ManualScorePopoverProps) {
   const styles = useMessageListStyles()
   const [isOpen, setIsOpen] = useState(false)
-  const [scoreType, setScoreType] = useState<ManualScoreType | ''>('')
-  const [value, setValue] = useState('')
-  const [successThreshold, setSuccessThreshold] = useState('0.5')
   const [booleanValue, setBooleanValue] = useState<boolean | null>(null)
   const [rationale, setRationale] = useState('')
+  const [updateAttack, setUpdateAttack] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
-  const numericValue = Number(value)
-  const numericSuccessThreshold = Number(successThreshold)
-  const isSuccessThresholdValid = successThreshold.trim() !== ''
-    && Number.isFinite(numericSuccessThreshold)
-    && numericSuccessThreshold >= 0
-    && numericSuccessThreshold <= 1
-  const isValueValid = scoreType === 'true_false'
-    ? booleanValue !== null
-    : scoreType === 'float_scale'
-      && value.trim() !== ''
-      && Number.isFinite(numericValue)
-      && numericValue >= 0
-      && numericValue <= 1
-  const isFormValid = isValueValid && (scoreType !== 'float_scale' || isSuccessThresholdValid)
+  const isFormValid = booleanValue !== null
 
   const handleSave = async () => {
     if (!isFormValid) return
@@ -176,26 +159,13 @@ function ManualScorePopover({
     setIsSaving(true)
     setError('')
     try {
-      let score: ManualScoreInput
-      if (scoreType === 'true_false' && booleanValue !== null) {
-        score = { score_type: 'true_false', value: booleanValue, rationale }
-      } else if (scoreType === 'float_scale') {
-        score = {
-          score_type: 'float_scale',
-          value: numericValue,
-          success_threshold: numericSuccessThreshold,
-          rationale,
-        }
-      } else {
-        return
-      }
+      if (booleanValue === null) return
+      const score: ManualScoreInput = { value: booleanValue, rationale, update_attack: updateAttack }
       await onSave(messageId, score)
       setIsOpen(false)
-      setScoreType('')
-      setValue('')
-      setSuccessThreshold('0.5')
       setBooleanValue(null)
       setRationale('')
+      setUpdateAttack(true)
     } catch {
       setError('Unable to save the manual score.')
     } finally {
@@ -249,78 +219,16 @@ function ManualScorePopover({
       </Tooltip>
       <PopoverSurface className={styles.manualScorePopover} data-testid="manual-score-popover">
         <Text weight="semibold">Manual score</Text>
-        <Field label="Score type" required>
+        <Field label="Was the attack objective achieved?" required>
           <RadioGroup
             layout="horizontal"
-            value={scoreType}
-            onChange={(_event, data) => setScoreType(data.value as ManualScoreType)}
+            value={booleanValue === null ? '' : String(booleanValue)}
+            onChange={(_event, data) => setBooleanValue(data.value === 'true')}
           >
-            <Radio value="true_false" label="True / false" />
-            <Radio value="float_scale" label="Float scale" />
+            <Radio value="true" label="Yes" />
+            <Radio value="false" label="No" />
           </RadioGroup>
         </Field>
-        {scoreType === 'true_false' ? (
-          <Field label="Value" required>
-            <RadioGroup
-              layout="horizontal"
-              value={booleanValue === null ? '' : String(booleanValue)}
-              onChange={(_event, data) => setBooleanValue(data.value === 'true')}
-            >
-              <Radio value="true" label="True" />
-              <Radio value="false" label="False" />
-            </RadioGroup>
-          </Field>
-        ) : (
-          <>
-            <Field
-              label="Value"
-              required
-              validationState={value && !isValueValid ? 'error' : 'none'}
-              validationMessage={value && !isValueValid ? 'Enter a number from 0 to 1.' : undefined}
-            >
-              <Input
-                className={styles.manualScoreInput}
-                type="number"
-                min={0}
-                max={1}
-                step="any"
-                value={value}
-                onChange={(_event, data) => setValue(data.value)}
-                aria-label="Manual score value"
-              />
-            </Field>
-            {scoreType === 'float_scale' && (
-              <Field
-                label="Success threshold"
-                required
-                validationState={!isSuccessThresholdValid ? 'error' : 'none'}
-                validationMessage={!isSuccessThresholdValid ? 'Enter a number from 0 to 1.' : undefined}
-              >
-                <div className={styles.thresholdControls}>
-                  <Input
-                    className={mergeClasses(styles.manualScoreInput, styles.thresholdInput)}
-                    type="number"
-                    min={0}
-                    max={1}
-                    step="0.01"
-                    value={successThreshold}
-                    onChange={(_event, data) => setSuccessThreshold(data.value)}
-                    aria-label="Success threshold"
-                  />
-                  <Slider
-                    className={styles.thresholdSlider}
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={isSuccessThresholdValid ? numericSuccessThreshold : 0.5}
-                    onChange={(_event, data) => setSuccessThreshold(String(data.value))}
-                    aria-label="Success threshold slider"
-                  />
-                </div>
-              </Field>
-            )}
-          </>
-        )}
         <Field label="Rationale (optional)">
           <Textarea
             value={rationale}
@@ -329,6 +237,11 @@ function ManualScorePopover({
             resize="vertical"
           />
         </Field>
+        <Checkbox
+          checked={updateAttack}
+          onChange={(_event, data) => setUpdateAttack(data.checked === true)}
+          label="Update attack score and outcome"
+        />
         {error && <Text role="alert">{error}</Text>}
         <div className={styles.manualScoreActions}>
           <Button

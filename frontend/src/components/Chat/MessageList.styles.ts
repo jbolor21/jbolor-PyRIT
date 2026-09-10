@@ -125,22 +125,6 @@ export const useMessageListStyles = makeStyles({
   manualScoreActionButton: {
     ...mobileTouchTargetHeight,
   },
-  manualScoreInput: {
-    ...mobileTouchTargetHeight,
-  },
-  thresholdControls: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap: tokens.spacingVerticalXXS,
-    width: '100%',
-  },
-  thresholdInput: {
-    width: '72px',
-  },
-  thresholdSlider: {
-    width: '100%',
-  },
   scoreChip: {
     minWidth: '32px',
     maxWidth: 'min(160px, calc(100vw - 64px))',

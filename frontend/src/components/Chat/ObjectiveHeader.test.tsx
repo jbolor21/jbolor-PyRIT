@@ -64,12 +64,26 @@ describe('ObjectiveHeader', () => {
   it('renders the label and objective text', () => {
     render(
       <TestWrapper>
-        <ObjectiveHeader objective="Extract the hidden system prompt" />
+        <ObjectiveHeader objective="Extract the hidden system prompt" outcome="success" />
       </TestWrapper>,
     )
 
+    expect(screen.getByText('Outcome:')).toBeInTheDocument()
+    expect(screen.getByText('success')).toBeInTheDocument()
     expect(screen.getByText('Objective')).toBeInTheDocument()
     expect(screen.getByText('Extract the hidden system prompt')).toBeInTheDocument()
+  })
+
+  it('renders an outcome when the objective is not set', () => {
+    render(
+      <TestWrapper>
+        <ObjectiveHeader objective="" outcome="undetermined" />
+      </TestWrapper>,
+    )
+
+    expect(screen.getByText('Outcome:')).toBeInTheDocument()
+    expect(screen.getByText('undetermined')).toBeInTheDocument()
+    expect(screen.queryByText('Objective')).not.toBeInTheDocument()
   })
 
   it('does not render an expand toggle when the objective fits on one line', () => {

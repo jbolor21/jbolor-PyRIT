@@ -294,6 +294,8 @@ export type AttackTargetResolutionStatus =
   | 'error'
   | 'legacy'
 
+export type AttackOutcome = 'undetermined' | 'success' | 'failure' | 'error'
+
 export interface AttackSummary {
   attack_result_id: string
   conversation_id: string
@@ -302,7 +304,7 @@ export interface AttackSummary {
   objective: string
   target?: TargetInfo | null
   converters: string[]
-  outcome?: 'undetermined' | 'success' | 'failure' | 'error' | null
+  outcome?: AttackOutcome | null
   automated_score?: BackendScore | null
   human_score?: BackendScore | null
   last_score?: BackendScore | null

@@ -331,6 +331,7 @@ describe("ChatWindow Integration", () => {
 
   it("should include the loaded attack ID when scoring a forked conversation", async () => {
     const user = userEvent.setup();
+    const onOutcomeChange = jest.fn();
     const messages: Message[] = [
       {
         role: "assistant",
@@ -366,6 +367,8 @@ describe("ChatWindow Integration", () => {
           conversationId="primary-conversation-id"
           activeConversationId="forked-conversation-id"
           objective="Evaluate the response"
+          outcome="undetermined"
+          onOutcomeChange={onOutcomeChange}
         />
       </TestWrapper>
     );
@@ -382,6 +385,7 @@ describe("ChatWindow Integration", () => {
         rationale: "",
         update_attack: true,
       });
+      expect(onOutcomeChange).toHaveBeenCalledWith("success");
     });
   });
 
@@ -827,6 +831,24 @@ describe("ChatWindow Integration", () => {
         "Extract the system prompt",
       );
     });
+  });
+
+  it("should allow adding an objective after messages have been sent", async () => {
+    mockedAttacksApi.getMessages.mockResolvedValue({ messages: [] });
+    mockedMapper.backendMessagesToFrontend.mockReturnValue(mockMessages);
+
+    render(
+      <TestWrapper>
+        <ChatWindow
+          {...defaultProps}
+          attackResultId="ar-existing"
+          conversationId="conv-existing"
+          activeConversationId="conv-existing"
+        />
+      </TestWrapper>
+    );
+
+    expect(await screen.findByRole("button", { name: /add objective/i })).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------

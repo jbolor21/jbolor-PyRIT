@@ -39,6 +39,7 @@ import { buildMessagePieces, backendMessagesToFrontend } from '../../utils/messa
 import { exportConversation } from '../../utils/conversationExport'
 import type { ExportFormat } from '../../utils/conversationExport'
 import type {
+  AttackOutcome,
   AttackTargetResolutionStatus,
   ManualScoreInput,
   Message,
@@ -88,6 +89,7 @@ interface ChatWindowProps {
   onConversationCreated: (attackResultId: string, conversationId: string, objective?: string) => void
   onSelectConversation: (conversationId: string) => void
   onObjectiveChange?: (objective: string) => void
+  onOutcomeChange?: (outcome: AttackOutcome) => void
   labels?: Record<string, string>
   onLabelsChange?: (labels: Record<string, string>) => void
   onNavigate?: (view: ViewName) => void
@@ -105,6 +107,8 @@ interface ChatWindowProps {
   relatedConversationCount?: number
   /** The loaded attack's objective (empty for new/manual attacks). */
   objective?: string
+  /** The loaded attack's current outcome. */
+  outcome?: AttackOutcome
   /** Validated scenario-run provenance for attacks opened from a run dashboard. */
   scenarioResultId?: string | null
 }
@@ -118,6 +122,7 @@ export default function ChatWindow({
   onConversationCreated,
   onSelectConversation,
   onObjectiveChange,
+  onOutcomeChange,
   labels,
   onLabelsChange,
   onNavigate,
@@ -128,6 +133,7 @@ export default function ChatWindow({
   isLoadingAttack,
   relatedConversationCount,
   objective = '',
+  outcome,
   scenarioResultId,
 }: ChatWindowProps) {
   const styles = useChatWindowStyles()
@@ -705,8 +711,11 @@ export default function ChatWindow({
       message_id: messageId,
       ...score,
     })
+    if (score.update_attack) {
+      onOutcomeChange?.(score.value ? 'success' : 'failure')
+    }
     await loadConversation(attackResultId, activeConversationId)
-  }, [activeConversationId, attackResultId, loadConversation, objective, pendingObjective])
+  }, [activeConversationId, attackResultId, loadConversation, objective, onOutcomeChange, pendingObjective])
 
   const handleAddObjective = useCallback(async (newObjective: string): Promise<void> => {
     if (!attackResultId) {
@@ -900,12 +909,13 @@ export default function ChatWindow({
         <ObjectiveHeader
           key={`${attackResultId ?? 'new'}-${objective}-${pendingObjective}-${objectiveEditRequestId}`}
           objective={objective || pendingObjective}
+          outcome={outcome}
           canAdd={
             Boolean(activeTarget)
             && !isLoadingAttack
             && !isLoadingMessages
             && !awaitingConversationLoad
-            && messages.length === 0
+            && !isMutationLocked
           }
           onAdd={handleAddObjective}
           editRequestId={objectiveEditRequestId}

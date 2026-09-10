@@ -11,16 +11,26 @@ import {
 } from '@fluentui/react-components'
 import { AddRegular, ChevronDownRegular, ChevronUpRegular } from '@fluentui/react-icons'
 
+import OutcomeBadge from '@/components/OutcomeBadge'
+import type { AttackOutcome } from '@/types'
+
 import { useObjectiveHeaderStyles } from './ObjectiveHeader.styles'
 
 interface ObjectiveHeaderProps {
   objective: string
+  outcome?: AttackOutcome
   canAdd?: boolean
   onAdd?: (objective: string) => Promise<void>
   editRequestId?: number
 }
 
-export default function ObjectiveHeader({ objective, canAdd = false, onAdd, editRequestId = 0 }: ObjectiveHeaderProps) {
+export default function ObjectiveHeader({
+  objective,
+  outcome,
+  canAdd = false,
+  onAdd,
+  editRequestId = 0,
+}: ObjectiveHeaderProps) {
   const styles = useObjectiveHeaderStyles()
   const promptedForManualScore = editRequestId > 0 && !objective && Boolean(onAdd)
   const [expanded, setExpanded] = useState(false)
@@ -66,7 +76,8 @@ export default function ObjectiveHeader({ objective, canAdd = false, onAdd, edit
   }
 
   if (!objective) {
-    if ((!canAdd && !isEditing) || !onAdd) return null
+    const canShowObjective = (canAdd || isEditing) && Boolean(onAdd)
+    if (!canShowObjective && !outcome) return null
     return (
       <>
         {showManualScoreWarning && (
@@ -77,56 +88,67 @@ export default function ObjectiveHeader({ objective, canAdd = false, onAdd, edit
             </MessageBarBody>
           </MessageBar>
         )}
-        <div className={styles.root} data-testid="objective-header">
-          <Badge className={styles.label} appearance="tint" color="brand" size="small">
-            Objective
-          </Badge>
-          {isEditing ? (
+        <div className={mergeClasses(styles.root, styles.emptyRoot)} data-testid="objective-header">
+          {outcome && (
+            <div className={styles.outcomeSection}>
+              <Text size={200} weight="semibold">Outcome:</Text>
+              <OutcomeBadge outcome={outcome} />
+            </div>
+          )}
+          {canShowObjective && (
             <>
-              <Input
-                className={styles.input}
-                value={draft}
-                onChange={(_event, data) => setDraft(data.value)}
-                placeholder="Enter an objective"
-                aria-label="Attack objective"
-                autoFocus
-              />
-              <Button
-                appearance="primary"
-                size="small"
-                className={styles.editorAction}
-                onClick={handleSave}
-                disabled={!draft.trim() || isSaving}
-              >
-                {isSaving ? 'Saving...' : 'Save'}
-              </Button>
-              <Button
-                appearance="subtle"
-                size="small"
-                className={styles.editorAction}
-                onClick={() => {
-                  setIsEditing(false)
-                  setShowManualScoreWarning(false)
-                }}
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-              {error && <Text role="alert">{error}</Text>}
+              {outcome && <div className={styles.separator} aria-hidden="true" />}
+              <Badge className={styles.label} appearance="tint" color="brand" size="small">
+                Objective
+              </Badge>
+              {isEditing ? (
+                <>
+                  <Input
+                    className={styles.input}
+                    value={draft}
+                    onChange={(_event, data) => setDraft(data.value)}
+                    placeholder="Enter an objective"
+                    aria-label="Attack objective"
+                    autoFocus
+                  />
+                  <Button
+                    appearance="primary"
+                    size="small"
+                    className={styles.editorAction}
+                    onClick={handleSave}
+                    disabled={!draft.trim() || isSaving}
+                  >
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </Button>
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    className={styles.editorAction}
+                    onClick={() => {
+                      setIsEditing(false)
+                      setShowManualScoreWarning(false)
+                    }}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                  {error && <Text role="alert">{error}</Text>}
+                </>
+              ) : (
+                <Button
+                  appearance="subtle"
+                  size="small"
+                  icon={<AddRegular />}
+                  onClick={() => {
+                    setShowManualScoreWarning(false)
+                    setIsEditing(true)
+                  }}
+                  className={styles.addButton}
+                >
+                  Add objective
+                </Button>
+              )}
             </>
-          ) : (
-            <Button
-              appearance="subtle"
-              size="small"
-              icon={<AddRegular />}
-              onClick={() => {
-                setShowManualScoreWarning(false)
-                setIsEditing(true)
-              }}
-              className={styles.addButton}
-            >
-              Add objective
-            </Button>
           )}
         </div>
       </>
@@ -137,6 +159,15 @@ export default function ObjectiveHeader({ objective, canAdd = false, onAdd, edit
 
   return (
     <div className={styles.root} data-testid="objective-header">
+      {outcome && (
+        <>
+          <div className={styles.outcomeSection}>
+            <Text size={200} weight="semibold">Outcome:</Text>
+            <OutcomeBadge outcome={outcome} />
+          </div>
+          <div className={styles.separator} aria-hidden="true" />
+        </>
+      )}
       <Badge className={styles.label} appearance="tint" color="brand" size="small">
         Objective
       </Badge>

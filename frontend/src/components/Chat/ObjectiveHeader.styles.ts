@@ -25,8 +25,27 @@ export const useObjectiveHeaderStyles = makeStyles({
       padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalM}`,
     },
   },
+  emptyRoot: {
+    alignItems: 'center',
+  },
   label: {
     flexShrink: 0,
+  },
+  outcomeSection: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    flexShrink: 0,
+    [NARROW_VIEWPORT_QUERY]: {
+      flexBasis: '100%',
+    },
+  },
+  separator: {
+    alignSelf: 'stretch',
+    borderLeft: `1px solid ${tokens.colorNeutralStroke2}`,
+    [NARROW_VIEWPORT_QUERY]: {
+      display: 'none',
+    },
   },
   content: {
     flexGrow: 1,

@@ -31,7 +31,7 @@ import {
 } from './components/History/scenarioHistoryFilters'
 import type { ScenarioHistoryFilters } from './components/History/scenarioHistoryFilters'
 import type { ViewName } from './components/Sidebar/Navigation'
-import type { TargetInfo } from './types'
+import type { AttackOutcome, AttackSummary, TargetInfo } from './types'
 import {
   targetEndpoint,
   targetIdentifierHash,
@@ -113,6 +113,7 @@ interface LoadedAttack {
   target: TargetInfo | null
   relatedConversationIds: string[]
   objective: string
+  outcome: NonNullable<AttackSummary['outcome']>
   status: AttackLoadStatus
 }
 
@@ -322,6 +323,7 @@ function App() {
       target: null,
       relatedConversationIds: [],
       objective: '',
+      outcome: 'undetermined',
     })
     attacksApi
       .getAttack(routeAttackId)
@@ -336,6 +338,7 @@ function App() {
           target: attack.target ?? null,
           relatedConversationIds: attack.related_conversation_ids ?? [],
           objective: attack.objective ?? '',
+          outcome: attack.outcome ?? 'undetermined',
           status: 'success',
         })
       })
@@ -355,6 +358,7 @@ function App() {
           target: null,
           relatedConversationIds: [],
           objective: '',
+          outcome: 'undetermined',
         })
       })
     // Drop a stale response once the route has moved on to another attack.
@@ -444,6 +448,7 @@ function App() {
       target,
       relatedConversationIds: [],
       objective: objective ?? '',
+      outcome: 'undetermined',
       status: 'success',
     })
     // Replace when promoting an empty /chat to its attack url (first message);
@@ -453,6 +458,10 @@ function App() {
 
   const handleObjectiveChange = useCallback((objective: string) => {
     setLoadedAttack((current) => current ? { ...current, objective } : current)
+  }, [])
+
+  const handleOutcomeChange = useCallback((outcome: AttackOutcome) => {
+    setLoadedAttack((current) => current ? { ...current, outcome } : current)
   }, [])
 
   const handleSelectConversation = useCallback((convId: string) => {
@@ -490,6 +499,7 @@ function App() {
       onConversationCreated={handleConversationCreated}
       onSelectConversation={handleSelectConversation}
       onObjectiveChange={handleObjectiveChange}
+      onOutcomeChange={handleOutcomeChange}
       labels={globalLabels}
       onLabelsChange={handleGlobalLabelsChange}
       onNavigate={handleNavigate}
@@ -500,6 +510,7 @@ function App() {
       isLoadingAttack={isLoadingAttack}
       relatedConversationCount={readyAttack ? readyAttack.relatedConversationIds.length : 0}
       objective={readyAttack ? readyAttack.objective : ''}
+      outcome={readyAttack?.outcome}
       scenarioResultId={readyAttack ? scenarioResultId : null}
     />
   )

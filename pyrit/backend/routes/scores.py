@@ -77,7 +77,7 @@ async def create_manual_score(  # pyrit-async-suffix-exempt
         )
 
     attack = attacks[0]
-    if not piece.conversation_id or piece.conversation_id not in attack.get_all_conversation_ids():
+    if not piece.conversation_id or piece.conversation_id not in attack.get_active_conversation_ids():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Message '{request_body.message_id}' does not belong to attack '{request_body.attack_result_id}'",

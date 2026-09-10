@@ -66,6 +66,20 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+def test_cors_allows_patch(client: TestClient) -> None:
+    """Test browser preflight requests permit attack PATCH operations."""
+    response = client.options(
+        "/api/attacks/attack-1",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "PATCH",
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert "PATCH" in response.headers["access-control-allow-methods"]
+
+
 # ============================================================================
 # Attack Routes Tests
 # ============================================================================
@@ -1411,7 +1425,7 @@ class TestScoreRoutes:
                 MagicMock(
                     attack_result_id=str(attack_result_id),
                     objective="Evaluate the response",
-                    get_all_conversation_ids=MagicMock(
+                    get_active_conversation_ids=MagicMock(
                         return_value={"primary-conversation-id", "forked-conversation-id"}
                     ),
                 )
@@ -1464,7 +1478,7 @@ class TestScoreRoutes:
                 MagicMock(
                     attack_result_id=str(attack_result_id),
                     objective="Evaluate the response",
-                    get_all_conversation_ids=MagicMock(return_value={"conversation-id"}),
+                    get_active_conversation_ids=MagicMock(return_value={"conversation-id"}),
                 )
             ]
             memory.update_attack_result_by_id.return_value = True
@@ -1516,7 +1530,7 @@ class TestScoreRoutes:
                 MagicMock(
                     attack_result_id=str(attack_result_id),
                     objective="Evaluate the response",
-                    get_all_conversation_ids=MagicMock(return_value={"conversation-id"}),
+                    get_active_conversation_ids=MagicMock(return_value={"conversation-id"}),
                 )
             ]
             mock_manual_scorer_class.return_value.score_async = AsyncMock(return_value=[score])
@@ -1555,7 +1569,7 @@ class TestScoreRoutes:
                 MagicMock(
                     attack_result_id=str(attack_result_id),
                     objective="Evaluate the response",
-                    get_all_conversation_ids=MagicMock(return_value={"conversation-id"}),
+                    get_active_conversation_ids=MagicMock(return_value={"conversation-id"}),
                 )
             ]
             memory.update_attack_result_by_id.return_value = True
@@ -1679,7 +1693,7 @@ class TestScoreRoutes:
             memory = mock_memory_class.get_memory_instance.return_value
             memory.get_message_pieces.return_value = [MagicMock(id=message_id, conversation_id="conversation-id")]
             memory.get_attack_results.return_value = [MagicMock(objective="", attack_result_id=str(attack_result_id))]
-            memory.get_attack_results.return_value[0].get_all_conversation_ids.return_value = {"conversation-id"}
+            memory.get_attack_results.return_value[0].get_active_conversation_ids.return_value = {"conversation-id"}
 
             response = client.post(
                 "/api/scores/manual",
@@ -1695,8 +1709,8 @@ class TestScoreRoutes:
         assert response.json()["detail"] == "An attack objective is required before adding a manual score"
         mock_manual_scorer_class.assert_not_called()
 
-    def test_create_manual_score_rejects_message_from_another_attack(self, client: TestClient) -> None:
-        """Test that a message from another attack cannot be manually scored."""
+    def test_create_manual_score_rejects_internal_adversarial_message(self, client: TestClient) -> None:
+        """Test that internal adversarial messages cannot determine the attack outcome."""
         attack_result_id = uuid.uuid4()
         message_id = uuid.uuid4()
 
@@ -1705,12 +1719,14 @@ class TestScoreRoutes:
             patch("pyrit.backend.routes.scores.ManualScorer") as mock_manual_scorer_class,
         ):
             memory = mock_memory_class.get_memory_instance.return_value
-            memory.get_message_pieces.return_value = [MagicMock(id=message_id, conversation_id="other-conversation-id")]
+            memory.get_message_pieces.return_value = [
+                MagicMock(id=message_id, conversation_id="internal-adversarial-conversation-id")
+            ]
             memory.get_attack_results.return_value = [
                 MagicMock(
                     objective="Evaluate the response",
                     attack_result_id=str(attack_result_id),
-                    get_all_conversation_ids=MagicMock(return_value={"conversation-id"}),
+                    get_active_conversation_ids=MagicMock(return_value={"conversation-id"}),
                 )
             ]
 

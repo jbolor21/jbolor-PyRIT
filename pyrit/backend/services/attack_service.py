@@ -20,7 +20,7 @@ import logging
 import mimetypes
 import uuid
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -372,7 +372,7 @@ class AttackService:
         target_obj = target_service.get_target_object(target_registry_name=request.target_registry_name)
         target_identifier = target_obj.get_identifier() if target_obj else None
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Merge source label with any user-supplied labels
         labels = dict(request.labels) if request.labels else {}
@@ -455,7 +455,7 @@ class AttackService:
         if not results:
             return None
 
-        update_fields: dict[str, Any] = {"timestamp": datetime.now(timezone.utc)}
+        update_fields: dict[str, Any] = {"timestamp": datetime.now(UTC)}
         if request.outcome is not None:
             outcome_map = {
                 "undetermined": AttackOutcome.UNDETERMINED,
@@ -515,7 +515,7 @@ class AttackService:
                 "human_score_id": None,
                 "outcome": outcome.value,
                 "outcome_reason": outcome_reason,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
 
@@ -549,7 +549,7 @@ class AttackService:
             created_at = stats.created_at if stats else None
             # SQLite returns naive datetimes — normalize to UTC (same pattern as the UTCDateTime column type)
             if created_at is not None and created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
+                created_at = created_at.replace(tzinfo=UTC)
             conversations.append(
                 ConversationSummary(
                     conversation_id=conv_id,
@@ -566,7 +566,7 @@ class AttackService:
         # have no stored messages yet so created_at is None — treat them as the most
         # recent (they were just created) so they sort after older conversations
         # instead of jumping to an arbitrary position.
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         conversations.sort(key=lambda c: c.created_at or now)
 
         return AttackConversationsResponse(
@@ -594,7 +594,7 @@ class AttackService:
             return None
 
         ar = results[0]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Validate that both or neither branching fields are provided
         if (request.source_conversation_id is None) != (request.cutoff_index is None):
@@ -656,7 +656,7 @@ class AttackService:
             return UpdateMainConversationResponse(
                 attack_result_id=attack_result_id,
                 conversation_id=target_conv_id,
-                updated_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(UTC),
             )
 
         # Verify the conversation belongs to this attack (main or related)
@@ -679,7 +679,7 @@ class AttackService:
         # visible in the GUI and fetchable via get_conversation_messages.
         updated_pruned.append(ar.conversation_id)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         self._memory.update_attack_result_by_id(
             attack_result_id=attack_result_id,
@@ -862,7 +862,7 @@ class AttackService:
             request_converter_configurations: Resolved request converter configurations used for this message.
             response_converter_configurations: Resolved response converter configurations used for this message.
         """
-        update_fields: dict[str, Any] = {"timestamp": datetime.now(timezone.utc)}
+        update_fields: dict[str, Any] = {"timestamp": datetime.now(UTC)}
         if last_response_id:
             update_fields["last_response_id"] = last_response_id
 

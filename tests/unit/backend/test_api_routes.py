@@ -9,7 +9,7 @@ import json
 import os
 import tempfile
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -218,7 +218,7 @@ class TestAttackRoutes:
 
     def test_create_attack_success(self, client: TestClient) -> None:
         """Test successful attack creation."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         with patch("pyrit.backend.routes.attacks.get_attack_service") as mock_get_service:
             mock_service = MagicMock()
@@ -256,7 +256,7 @@ class TestAttackRoutes:
 
     def test_get_attack_success(self, client: TestClient) -> None:
         """Test getting an attack by ID."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         with patch("pyrit.backend.routes.attacks.get_attack_service") as mock_get_service:
             mock_service = MagicMock()
@@ -292,7 +292,7 @@ class TestAttackRoutes:
 
     def test_update_attack_success(self, client: TestClient) -> None:
         """Test updating an attack's outcome."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         with patch("pyrit.backend.routes.attacks.get_attack_service") as mock_get_service:
             mock_service = MagicMock()
@@ -321,7 +321,7 @@ class TestAttackRoutes:
 
     def test_update_attack_objective_success(self, client: TestClient) -> None:
         """Test adding an objective to an attack."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with patch("pyrit.backend.routes.attacks.get_attack_service") as mock_get_service:
             mock_get_service.return_value.update_attack_async = AsyncMock(
                 return_value=AttackSummary(
@@ -361,7 +361,7 @@ class TestAttackRoutes:
 
     def test_remove_human_score_success(self, client: TestClient) -> None:
         """Test removing an attack's human-score override."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with patch("pyrit.backend.routes.attacks.get_attack_service") as mock_get_service:
             mock_get_service.return_value.remove_human_score_async = AsyncMock(
                 return_value=AttackSummary(
@@ -393,7 +393,7 @@ class TestAttackRoutes:
 
     def test_add_message_success(self, client: TestClient) -> None:
         """Test adding a message to an attack."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         attack_summary = AttackSummary(
             attack_result_id="ar-attack-1",
@@ -640,7 +640,7 @@ class TestAttackRoutes:
 
     def test_list_attacks_with_labels(self, client: TestClient) -> None:
         """Test listing attacks with label filters."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         with patch("pyrit.backend.routes.attacks.get_attack_service") as mock_get_service:
             mock_service = MagicMock()

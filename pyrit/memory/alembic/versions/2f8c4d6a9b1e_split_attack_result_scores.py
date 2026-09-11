@@ -5,7 +5,7 @@
 Split the attack result score into automated and human score references.
 
 Revision ID: 2f8c4d6a9b1e
-Revises: 1b3d5f7a9c2e
+Revises: a4c6e8f0b2d1
 Create Date: 2026-09-10 10:30:00.000000
 """
 
@@ -18,7 +18,7 @@ from pyrit.memory.memory_models import CustomUUID
 
 # revision identifiers, used by Alembic.
 revision: str = "2f8c4d6a9b1e"
-down_revision: str | None = "1b3d5f7a9c2e"
+down_revision: str | None = "a4c6e8f0b2d1"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

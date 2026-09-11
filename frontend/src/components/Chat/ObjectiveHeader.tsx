@@ -32,6 +32,7 @@ interface ObjectiveHeaderProps {
   automatedScore?: BackendScore | null
   humanScore?: BackendScore | null
   canUpdateOutcome?: boolean
+  canRemoveHumanScore?: boolean
   onUpdateHumanScore?: (value: boolean, rationale: string) => Promise<void>
   onRemoveHumanScore?: () => Promise<void>
   canAdd?: boolean
@@ -54,6 +55,7 @@ export default function ObjectiveHeader({
   automatedScore,
   humanScore,
   canUpdateOutcome = false,
+  canRemoveHumanScore = canUpdateOutcome,
   onUpdateHumanScore,
   onRemoveHumanScore,
   canAdd = false,
@@ -125,7 +127,7 @@ export default function ObjectiveHeader({
   }
 
   const handleRemoveResult = async (): Promise<void> => {
-    if (!onRemoveHumanScore || !canUpdateOutcome) return
+    if (!onRemoveHumanScore || !canRemoveHumanScore) return
 
     setIsUpdatingResult(true)
     setResultError('')
@@ -234,7 +236,7 @@ export default function ObjectiveHeader({
               <Button
                 appearance="secondary"
                 onClick={handleRemoveResult}
-                disabled={!canUpdateOutcome || isUpdatingResult}
+                disabled={!canRemoveHumanScore || isUpdatingResult}
               >
                 Remove human score
               </Button>

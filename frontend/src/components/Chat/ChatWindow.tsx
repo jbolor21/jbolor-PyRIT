@@ -961,6 +961,11 @@ export default function ChatWindow({
             && Boolean(lastResponseMessagePieceId)
             && !isMutationLocked
           }
+          canRemoveHumanScore={
+            Boolean(attackResultId)
+            && Boolean(humanScore)
+            && !isMutationLocked
+          }
           onUpdateHumanScore={handleHumanScoreUpdate}
           onRemoveHumanScore={handleHumanScoreRemove}
           canAdd={

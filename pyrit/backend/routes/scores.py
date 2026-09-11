@@ -5,7 +5,7 @@
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request, status
 
@@ -108,7 +108,7 @@ async def create_manual_score(  # pyrit-async-suffix-exempt
                 "human_score_id": uuid.UUID(str(score.id)),
                 "outcome": outcome,
                 "outcome_reason": score.score_rationale or None,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
         if not updated:

@@ -147,6 +147,7 @@ export default function ObjectiveHeader({
       </Badge>
       <Popover
         withArrow
+        positioning={{ autoSize: 'height' }}
         onOpenChange={(_event, data) => {
           if (data.open) {
             const currentHumanVerdict = scoreVerdict(humanScore ?? automatedScore)
@@ -235,6 +236,7 @@ export default function ObjectiveHeader({
             {humanScore && onRemoveHumanScore && (
               <Button
                 appearance="secondary"
+                className={styles.resultAction}
                 onClick={handleRemoveResult}
                 disabled={!canRemoveHumanScore || isUpdatingResult}
               >
@@ -243,6 +245,7 @@ export default function ObjectiveHeader({
             )}
             <Button
               appearance="primary"
+              className={styles.resultAction}
               onClick={handleUpdateResult}
               disabled={!canUpdateOutcome || isUpdatingResult}
             >

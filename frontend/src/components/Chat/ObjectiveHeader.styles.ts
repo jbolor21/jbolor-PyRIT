@@ -89,6 +89,9 @@ export const useObjectiveHeaderStyles = makeStyles({
     justifyContent: 'flex-end',
     gap: tokens.spacingHorizontalS,
   },
+  resultAction: {
+    ...mobileTouchTargetHeight,
+  },
   scoreValueButton: {
     fontSize: tokens.fontSizeBase300,
     fontWeight: tokens.fontWeightRegular,

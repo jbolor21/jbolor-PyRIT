@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { makeAddMessageResponse } from "./_attacks";
 import { makeTarget } from "./_targets";
 
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
@@ -295,7 +296,9 @@ async function installTouchTargetMocks(page: Page): Promise<void> {
     if (apiPath === "/attacks/mobile-attack-001/messages") {
       await route.fulfill(
         method === "POST"
-          ? jsonResponse({ messages: { messages: MESSAGES } })
+          ? jsonResponse(makeAddMessageResponse(
+              "mobile-attack-001", "mobile-conversation-001", MESSAGES,
+            ))
           : jsonResponse({ messages: MESSAGES })
       );
       return;
@@ -611,12 +614,14 @@ test.describe("Mobile touch targets", () => {
 
     const resultDetails = page.getByText("Attack Result Details").locator("..");
     await expect(resultDetails).toBeVisible();
-    const popoverBounds = await resultDetails.boundingBox();
-    if (!popoverBounds) {
-      throw new Error("Expected attack result details bounds");
-    }
-    expect(popoverBounds.y).toBeGreaterThanOrEqual(0);
-    expect(popoverBounds.y + popoverBounds.height).toBeLessThanOrEqual(568);
+    await expect(async () => {
+      const popoverBounds = await resultDetails.boundingBox();
+      if (!popoverBounds) {
+        throw new Error("Expected attack result details bounds");
+      }
+      expect(popoverBounds.y).toBeGreaterThanOrEqual(0);
+      expect(popoverBounds.y + popoverBounds.height).toBeLessThanOrEqual(568);
+    }).toPass();
     await expectMinimumTouchTarget(
       page.getByRole("button", { name: "Update" })
     );

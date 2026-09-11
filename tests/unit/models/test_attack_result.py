@@ -351,7 +351,7 @@ def test_last_score_falls_back_to_automated_score() -> None:
     )
 
     assert result.last_score is automated_score
-    with pytest.raises(AttributeError, match="has no setter"):
+    with pytest.raises(AttributeError, match="has no setter|can't set attribute"):
         result.last_score = None
 
 

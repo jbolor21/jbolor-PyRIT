@@ -308,6 +308,7 @@ export interface AttackSummary {
   automated_score?: BackendScore | null
   human_score?: BackendScore | null
   last_score?: BackendScore | null
+  last_response?: BackendMessagePiece | null
   last_message_preview?: string | null
   message_count: number
   related_conversation_ids: string[]
@@ -344,6 +345,7 @@ export interface BackendScore {
   id: string
   message_piece_id: string
   scorer_type: string
+  scorer_class_identifier?: ComponentIdentifier | null
   score_type: string
   score_value?: string | null
   status?: string
@@ -351,6 +353,17 @@ export interface BackendScore {
   score_category?: string[] | null
   score_rationale?: string | null
   timestamp: string
+}
+
+export interface ComponentIdentifier {
+  class_name: string
+  class_module: string
+  hash: string
+  eval_hash?: string | null
+  pyrit_version?: string
+  children?: Record<string, ComponentIdentifier | ComponentIdentifier[]>
+  attributes?: Record<string, unknown>
+  [parameter: string]: unknown
 }
 
 export interface ManualScoreInput {

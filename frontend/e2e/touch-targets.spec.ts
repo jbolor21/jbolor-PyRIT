@@ -597,32 +597,28 @@ test.describe("Mobile touch targets", () => {
           '[data-testid="copy-to-new-conv-btn-1"]',
           '[data-testid="branch-conv-btn-1"]',
           '[data-testid="branch-attack-btn-1"]',
-          '[aria-label="Add manual score"]',
+          '[aria-label^="Objective achieved outcome:"]',
         ].join(",")
       )
     );
     await expectNoDocumentOverflow(page);
 
-    const manualScoreButton = page.getByRole("button", {
-      name: "Add manual score",
+    const outcomeButton = page.getByRole("button", {
+      name: /Objective achieved outcome:/,
     });
-    await manualScoreButton.click();
-    await page.getByRole("radio", { name: "Float scale" }).click();
+    await outcomeButton.click();
     await page.setViewportSize({ width: 320, height: 568 });
 
-    const manualScorePopover = page.getByTestId("manual-score-popover");
-    await expect(manualScorePopover).toBeVisible();
-    const popoverBounds = await manualScorePopover.boundingBox();
+    const resultDetails = page.getByText("Attack Result Details").locator("..");
+    await expect(resultDetails).toBeVisible();
+    const popoverBounds = await resultDetails.boundingBox();
     if (!popoverBounds) {
-      throw new Error("Expected manual score popover bounds");
+      throw new Error("Expected attack result details bounds");
     }
     expect(popoverBounds.y).toBeGreaterThanOrEqual(0);
     expect(popoverBounds.y + popoverBounds.height).toBeLessThanOrEqual(568);
     await expectMinimumTouchTarget(
-      page.getByRole("button", { name: "Cancel" })
-    );
-    await expectMinimumTouchTarget(
-      page.getByRole("button", { name: "Save" })
+      page.getByRole("button", { name: "Update" })
     );
     await expectNoDocumentOverflow(page);
     await page.keyboard.press("Escape");

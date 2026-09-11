@@ -11,22 +11,30 @@ export const useObjectiveHeaderStyles = makeStyles({
   root: {
     flexShrink: 0,
     display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: tokens.colorNeutralBackground2,
+    borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
+    borderLeft: `3px solid ${tokens.colorBrandStroke1}`,
+    [NARROW_VIEWPORT_QUERY]: {
+      alignItems: 'stretch',
+    },
+  },
+  emptyRoot: {
+    alignItems: 'stretch',
+  },
+  headerSection: {
+    display: 'flex',
     flexDirection: 'row',
     alignItems: 'baseline',
     columnGap: tokens.spacingHorizontalS,
     padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalL}`,
-    backgroundColor: tokens.colorNeutralBackground2,
-    borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
-    borderLeft: `3px solid ${tokens.colorBrandStroke1}`,
+    minWidth: 0,
     [NARROW_VIEWPORT_QUERY]: {
       alignItems: 'center',
       flexWrap: 'wrap',
       rowGap: tokens.spacingVerticalS,
       padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalM}`,
     },
-  },
-  emptyRoot: {
-    alignItems: 'center',
   },
   label: {
     flexShrink: 0,
@@ -36,16 +44,61 @@ export const useObjectiveHeaderStyles = makeStyles({
     alignItems: 'center',
     gap: tokens.spacingHorizontalXS,
     flexShrink: 0,
+    padding: `${tokens.spacingVerticalXS} ${tokens.spacingHorizontalL} ${tokens.spacingVerticalS}`,
+    borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
     [NARROW_VIEWPORT_QUERY]: {
-      flexBasis: '100%',
+      padding: `${tokens.spacingVerticalXS} ${tokens.spacingHorizontalM} ${tokens.spacingVerticalS}`,
     },
   },
-  separator: {
-    alignSelf: 'stretch',
-    borderLeft: `1px solid ${tokens.colorNeutralStroke2}`,
-    [NARROW_VIEWPORT_QUERY]: {
-      display: 'none',
-    },
+  outcomeButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 0,
+    padding: 0,
+    ...mobileTouchTargetHeight,
+  },
+  resultPopover: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+    width: 'min(420px, calc(100vw - 32px))',
+    maxHeight: 'calc(100vh - 32px)',
+    overflowY: 'auto',
+  },
+  resultScoreRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: tokens.spacingHorizontalM,
+    minWidth: 0,
+  },
+  scorerIdentity: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalXXS,
+    padding: tokens.spacingVerticalS,
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground2,
+  },
+  identityValue: {
+    overflowWrap: 'anywhere',
+  },
+  resultActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: tokens.spacingHorizontalS,
+  },
+  scoreValueButton: {
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightRegular,
+  },
+  scoreValueText: {
+    fontSize: tokens.fontSizeBase300,
+  },
+  verdictOptions: {
+    display: 'flex',
+    justifyContent: 'center',
   },
   content: {
     flexGrow: 1,

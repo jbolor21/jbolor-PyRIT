@@ -31,7 +31,7 @@ import {
 } from './components/History/scenarioHistoryFilters'
 import type { ScenarioHistoryFilters } from './components/History/scenarioHistoryFilters'
 import type { ViewName } from './components/Sidebar/Navigation'
-import type { AttackOutcome, AttackSummary, TargetInfo } from './types'
+import type { AttackOutcome, AttackSummary, BackendScore, TargetInfo } from './types'
 import {
   targetEndpoint,
   targetIdentifierHash,
@@ -114,6 +114,9 @@ interface LoadedAttack {
   relatedConversationIds: string[]
   objective: string
   outcome: NonNullable<AttackSummary['outcome']>
+  automatedScore: BackendScore | null
+  humanScore: BackendScore | null
+  lastResponseMessagePieceId: string | null
   status: AttackLoadStatus
 }
 
@@ -324,6 +327,9 @@ function App() {
       relatedConversationIds: [],
       objective: '',
       outcome: 'undetermined',
+      automatedScore: null,
+      humanScore: null,
+      lastResponseMessagePieceId: null,
     })
     attacksApi
       .getAttack(routeAttackId)
@@ -339,6 +345,9 @@ function App() {
           relatedConversationIds: attack.related_conversation_ids ?? [],
           objective: attack.objective ?? '',
           outcome: attack.outcome ?? 'undetermined',
+          automatedScore: attack.automated_score ?? null,
+          humanScore: attack.human_score ?? null,
+          lastResponseMessagePieceId: attack.last_response?.id ?? null,
           status: 'success',
         })
       })
@@ -359,6 +368,9 @@ function App() {
           relatedConversationIds: [],
           objective: '',
           outcome: 'undetermined',
+          automatedScore: null,
+          humanScore: null,
+          lastResponseMessagePieceId: null,
         })
       })
     // Drop a stale response once the route has moved on to another attack.
@@ -449,6 +461,9 @@ function App() {
       relatedConversationIds: [],
       objective: objective ?? '',
       outcome: 'undetermined',
+      automatedScore: null,
+      humanScore: null,
+      lastResponseMessagePieceId: null,
       status: 'success',
     })
     // Replace when promoting an empty /chat to its attack url (first message);
@@ -460,8 +475,23 @@ function App() {
     setLoadedAttack((current) => current ? { ...current, objective } : current)
   }, [])
 
-  const handleOutcomeChange = useCallback((outcome: AttackOutcome) => {
-    setLoadedAttack((current) => current ? { ...current, outcome } : current)
+  const handleHumanScoreChange = useCallback((humanScore: BackendScore | null, outcome: AttackOutcome) => {
+    setLoadedAttack((current) => current ? { ...current, humanScore, outcome } : current)
+  }, [])
+
+  const handleAttackChange = useCallback((attack: AttackSummary) => {
+    setLoadedAttack((current) => (
+      current && current.id === attack.attack_result_id
+        ? {
+            ...current,
+            objective: attack.objective ?? '',
+            outcome: attack.outcome ?? 'undetermined',
+            automatedScore: attack.automated_score ?? null,
+            humanScore: attack.human_score ?? null,
+            lastResponseMessagePieceId: attack.last_response?.id ?? null,
+          }
+        : current
+    ))
   }, [])
 
   const handleSelectConversation = useCallback((convId: string) => {
@@ -499,7 +529,8 @@ function App() {
       onConversationCreated={handleConversationCreated}
       onSelectConversation={handleSelectConversation}
       onObjectiveChange={handleObjectiveChange}
-      onOutcomeChange={handleOutcomeChange}
+      onHumanScoreChange={handleHumanScoreChange}
+      onAttackChange={handleAttackChange}
       labels={globalLabels}
       onLabelsChange={handleGlobalLabelsChange}
       onNavigate={handleNavigate}
@@ -511,6 +542,9 @@ function App() {
       relatedConversationCount={readyAttack ? readyAttack.relatedConversationIds.length : 0}
       objective={readyAttack ? readyAttack.objective : ''}
       outcome={readyAttack?.outcome}
+      automatedScore={readyAttack?.automatedScore}
+      humanScore={readyAttack?.humanScore}
+      lastResponseMessagePieceId={readyAttack?.lastResponseMessagePieceId}
       scenarioResultId={readyAttack ? scenarioResultId : null}
     />
   )

@@ -293,6 +293,13 @@ export const attacksApi = {
     return response.data
   },
 
+  removeHumanScore: async (attackResultId: string): Promise<AttackSummary> => {
+    const response = await apiClient.delete(
+      `/attacks/${encodeURIComponent(attackResultId)}/human-score`
+    )
+    return response.data
+  },
+
   getMessages: async (attackResultId: string, conversationId: string): Promise<ConversationMessagesResponse> => {
     const response = await apiClient.get(
       `/attacks/${encodeURIComponent(attackResultId)}/messages`,

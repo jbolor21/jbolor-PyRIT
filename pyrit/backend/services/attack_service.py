@@ -15,6 +15,7 @@ ARCHITECTURE:
 - AI-generated attacks may have multiple related conversations
 """
 
+import asyncio
 import logging
 import mimetypes
 import uuid
@@ -284,7 +285,10 @@ class AttackService:
         Returns:
             AttackSummary if found, None otherwise.
         """
-        results = self._memory.get_attack_results(attack_result_ids=[attack_result_id])
+        results = await asyncio.to_thread(
+            self._memory.get_attack_results,
+            attack_result_ids=[attack_result_id],
+        )
         if not results:
             return None
 
@@ -462,6 +466,46 @@ class AttackService:
         self._memory.update_attack_result_by_id(
             attack_result_id=attack_result_id,
             update_fields=update_fields,
+        )
+
+        return await self.get_attack_async(attack_result_id=attack_result_id)
+
+    async def remove_human_score_async(self, *, attack_result_id: str) -> AttackSummary | None:
+        """
+        Remove the human-score override from an attack.
+
+        The immutable score remains in memory. The attack outcome falls back to
+        its automated true/false score, or to undetermined when none exists.
+
+        Returns:
+            Updated AttackSummary if found, None otherwise.
+        """
+        results = await asyncio.to_thread(
+            self._memory.get_attack_results,
+            attack_result_ids=[attack_result_id],
+        )
+        if not results:
+            return None
+
+        automated_score = results[0].automated_score
+        if automated_score is None or automated_score.score_value is None:
+            outcome = AttackOutcome.UNDETERMINED
+            outcome_reason = None
+        else:
+            outcome = (
+                AttackOutcome.SUCCESS if automated_score.score_value.casefold() == "true" else AttackOutcome.FAILURE
+            )
+            outcome_reason = automated_score.score_rationale
+
+        await asyncio.to_thread(
+            self._memory.update_attack_result_by_id,
+            attack_result_id=attack_result_id,
+            update_fields={
+                "human_score_id": None,
+                "outcome": outcome.value,
+                "outcome_reason": outcome_reason,
+                "timestamp": datetime.now(timezone.utc),
+            },
         )
 
         return await self.get_attack_async(attack_result_id=attack_result_id)
@@ -680,6 +724,7 @@ class AttackService:
         preconverted_indexes = {
             index for index, piece in enumerate(request.pieces) if piece.converted_value is not None
         }
+        last_response_id: str | None = None
 
         # Get existing messages to determine sequence.
         # NOTE: This read-then-write is not atomic (TOCTOU). Fine for the
@@ -690,6 +735,7 @@ class AttackService:
 
         if request.send:
             assert target_registry_name is not None  # validated above
+            prior_ids = {p.id for p in existing}
             try:
                 await self._send_and_store_message_async(
                     conversation_id=msg_conversation_id,
@@ -708,7 +754,6 @@ class AttackService:
                 # generic 500. If no new error piece was stored (the failure
                 # happened before the send, e.g. target lookup), re-raise so the
                 # route still reports a real error.
-                prior_ids = {p.id for p in existing}
                 current_pieces = self._memory.get_message_pieces(conversation_id=msg_conversation_id)
                 if not any(p.id not in prior_ids and p.has_error() for p in current_pieces):
                     raise
@@ -717,6 +762,15 @@ class AttackService:
                     attack_result_id,
                     msg_conversation_id,
                 )
+            current_pieces = await asyncio.to_thread(
+                self._memory.get_message_pieces,
+                conversation_id=msg_conversation_id,
+            )
+            last_response = next(
+                (piece for piece in current_pieces if piece.id not in prior_ids and piece.role == "assistant"),
+                None,
+            )
+            last_response_id = str(last_response.id) if last_response else None
         else:
             existing_metadata = self._memory._get_conversation(conversation_id=msg_conversation_id)
             await self._store_message_only_async(
@@ -729,6 +783,7 @@ class AttackService:
         await self._update_attack_after_message_async(
             attack_result_id=attack_result_id,
             ar=ar,
+            last_response_id=last_response_id,
             request_converter_configurations=request_converter_configs,
             response_converter_configurations=response_converter_configs,
         )
@@ -802,6 +857,7 @@ class AttackService:
         *,
         attack_result_id: str,
         ar: AttackResult,
+        last_response_id: str | None,
         request_converter_configurations: list[ConverterConfiguration],
         response_converter_configurations: list[ConverterConfiguration],
     ) -> None:
@@ -814,10 +870,13 @@ class AttackService:
         Args:
             attack_result_id: The attack result to update.
             ar: The current attack result.
+            last_response_id: The latest target response piece ID, if one was stored.
             request_converter_configurations: Resolved request converter configurations used for this message.
             response_converter_configurations: Resolved response converter configurations used for this message.
         """
         update_fields: dict[str, Any] = {"timestamp": datetime.now(timezone.utc)}
+        if last_response_id:
+            update_fields["last_response_id"] = last_response_id
 
         request_converter_ids = self._get_converter_identifiers(configurations=request_converter_configurations)
         response_converter_ids = self._get_converter_identifiers(configurations=response_converter_configurations)

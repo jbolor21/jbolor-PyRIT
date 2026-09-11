@@ -29,6 +29,7 @@ jest.mock("../../services/api", () => ({
   attacksApi: {
     createAttack: jest.fn(),
     updateAttack: jest.fn(),
+    removeHumanScore: jest.fn(),
     addMessage: jest.fn(),
     getMessages: jest.fn(),
     getRelatedConversations: jest.fn(),
@@ -329,27 +330,11 @@ describe("ChatWindow Integration", () => {
     expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
-  it("should include the loaded attack ID when scoring a forked conversation", async () => {
+  it("should attach an updated human score to the latest response", async () => {
     const user = userEvent.setup();
-    const onOutcomeChange = jest.fn();
-    const messages: Message[] = [
-      {
-        role: "assistant",
-        content: "Forked response",
-        timestamp: "2026-01-01T00:00:01Z",
-        displayPieces: [
-          {
-            type: "text",
-            pieceId: "forked-piece",
-            pieceIndex: 0,
-            content: "Forked response",
-            scores: [],
-          },
-        ],
-      },
-    ];
+    const onHumanScoreChange = jest.fn();
     mockedAttacksApi.getMessages.mockResolvedValue(makeTextResponse("Forked response") as never);
-    mockedMapper.backendMessagesToFrontend.mockReturnValue(messages);
+    mockedMapper.backendMessagesToFrontend.mockReturnValue([]);
     mockedScoresApi.createManualScore.mockResolvedValue({
       id: "manual-score-id",
       message_piece_id: "forked-piece",
@@ -368,24 +353,92 @@ describe("ChatWindow Integration", () => {
           activeConversationId="forked-conversation-id"
           objective="Evaluate the response"
           outcome="undetermined"
-          onOutcomeChange={onOutcomeChange}
+          lastResponseMessagePieceId="latest-response-piece"
+          automatedScore={{
+            id: "automated-score-id",
+            message_piece_id: "older-automated-piece",
+            scorer_type: "AutomatedScorer",
+            score_type: "true_false",
+            score_value: "False",
+            timestamp: "2026-01-01T00:00:01Z",
+          }}
+          humanScore={{
+            id: "human-score-id",
+            message_piece_id: "older-human-piece",
+            scorer_type: "ManualScorer",
+            score_type: "true_false",
+            score_value: "False",
+            timestamp: "2026-01-01T00:00:01Z",
+          }}
+          onHumanScoreChange={onHumanScoreChange}
         />
       </TestWrapper>
     );
 
-    await user.click(await screen.findByRole("button", { name: "Add manual score" }));
-    await user.click(screen.getByRole("radio", { name: "Yes" }));
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(await screen.findByRole("button", { name: /objective achieved outcome: undetermined/i }));
+    await user.click(screen.getByRole("radio", { name: "Success" }));
+    await user.click(screen.getByRole("button", { name: "Update" }));
 
     await waitFor(() => {
       expect(mockedScoresApi.createManualScore).toHaveBeenCalledWith({
         attack_result_id: "attack-result-id",
-        message_id: "forked-piece",
+        message_id: "latest-response-piece",
         value: true,
         rationale: "",
         update_attack: true,
       });
-      expect(onOutcomeChange).toHaveBeenCalledWith("success");
+      expect(onHumanScoreChange).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "manual-score-id" }),
+        "success",
+      );
+    });
+  });
+
+  it("should remove the attack human-score override", async () => {
+    const user = userEvent.setup();
+    const onHumanScoreChange = jest.fn();
+    mockedAttacksApi.removeHumanScore.mockResolvedValue({
+      attack_result_id: "attack-result-id",
+      conversation_id: "primary-conversation-id",
+      attack_type: "ManualAttack",
+      objective: "Evaluate the response",
+      converters: [],
+      outcome: "failure",
+      message_count: 1,
+      related_conversation_ids: [],
+      labels: {},
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:02Z",
+    });
+
+    render(
+      <TestWrapper>
+        <ChatWindow
+          {...defaultProps}
+          attackResultId="attack-result-id"
+          conversationId="primary-conversation-id"
+          activeConversationId="primary-conversation-id"
+          objective="Evaluate the response"
+          outcome="success"
+          humanScore={{
+            id: "manual-score-id",
+            message_piece_id: "response-piece",
+            scorer_type: "ManualScorer",
+            score_type: "true_false",
+            score_value: "True",
+            timestamp: "2026-01-01T00:00:01Z",
+          }}
+          onHumanScoreChange={onHumanScoreChange}
+        />
+      </TestWrapper>
+    );
+
+    await user.click(screen.getByRole("button", { name: /objective achieved outcome: success/i }));
+    await user.click(screen.getByRole("button", { name: "Remove human score" }));
+
+    await waitFor(() => {
+      expect(mockedAttacksApi.removeHumanScore).toHaveBeenCalledWith("attack-result-id");
+      expect(onHumanScoreChange).toHaveBeenCalledWith(null, "failure");
     });
   });
 
@@ -731,6 +784,7 @@ describe("ChatWindow Integration", () => {
   it("should create attack and send text message on first message", async () => {
     const user = userEvent.setup();
     const onConversationCreated = jest.fn();
+    const onAttackChange = jest.fn();
 
     mockedMapper.buildMessagePieces.mockResolvedValue([
       { data_type: "text", original_value: "Hello" },
@@ -740,7 +794,17 @@ describe("ChatWindow Integration", () => {
       conversation_id: "conv-1",
       created_at: "2026-01-01T00:00:00Z",
     });
-    mockedAttacksApi.addMessage.mockResolvedValue(makeTextResponse("Hello back!") as never);
+    mockedAttacksApi.addMessage.mockResolvedValue({
+      ...makeTextResponse("Hello back!"),
+      attack: {
+        attack_result_id: "ar-conv-1",
+        conversation_id: "conv-1",
+        outcome: "undetermined",
+        last_response: {
+          id: "p-resp",
+        },
+      },
+    } as never);
     mockedMapper.backendMessagesToFrontend.mockReturnValue([
       {
         role: "user",
@@ -759,6 +823,7 @@ describe("ChatWindow Integration", () => {
         <ChatWindow
           {...defaultProps}
           onConversationCreated={onConversationCreated}
+          onAttackChange={onAttackChange}
           conversationId={null}
         />
       </TestWrapper>
@@ -782,6 +847,12 @@ describe("ChatWindow Integration", () => {
         target_conversation_id: "conv-1",
         labels: { operator: "testuser", operation: "test_op" },
       });
+      expect(onAttackChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attack_result_id: "ar-conv-1",
+          last_response: expect.objectContaining({ id: "p-resp" }),
+        })
+      );
     });
 
     // Messages should appear in the DOM
@@ -2818,13 +2889,7 @@ describe("ChatWindow Integration", () => {
     });
 
     expect(screen.getByTestId("use-as-template-btn")).toBeInTheDocument();
-    const manualScoreButton = await screen.findByRole("button", { name: "Add manual score" });
-    await userEvent.click(manualScoreButton);
-    expect(screen.getByTestId("manual-score-objective-warning")).toHaveTextContent(
-      "An objective is required before you can add a manual score."
-    );
-    expect(screen.getByRole("textbox", { name: /attack objective/i })).toBeInTheDocument();
-    expect(screen.queryByText("Manual score")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add manual score" })).not.toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------

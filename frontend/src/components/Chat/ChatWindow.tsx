@@ -40,8 +40,9 @@ import { exportConversation } from '../../utils/conversationExport'
 import type { ExportFormat } from '../../utils/conversationExport'
 import type {
   AttackOutcome,
+  AttackSummary,
   AttackTargetResolutionStatus,
-  ManualScoreInput,
+  BackendScore,
   Message,
   MessageAttachment,
   TargetInstance,
@@ -89,7 +90,8 @@ interface ChatWindowProps {
   onConversationCreated: (attackResultId: string, conversationId: string, objective?: string) => void
   onSelectConversation: (conversationId: string) => void
   onObjectiveChange?: (objective: string) => void
-  onOutcomeChange?: (outcome: AttackOutcome) => void
+  onHumanScoreChange?: (score: BackendScore | null, outcome: AttackOutcome) => void
+  onAttackChange?: (attack: AttackSummary) => void
   labels?: Record<string, string>
   onLabelsChange?: (labels: Record<string, string>) => void
   onNavigate?: (view: ViewName) => void
@@ -109,6 +111,9 @@ interface ChatWindowProps {
   objective?: string
   /** The loaded attack's current outcome. */
   outcome?: AttackOutcome
+  automatedScore?: BackendScore | null
+  humanScore?: BackendScore | null
+  lastResponseMessagePieceId?: string | null
   /** Validated scenario-run provenance for attacks opened from a run dashboard. */
   scenarioResultId?: string | null
 }
@@ -122,7 +127,8 @@ export default function ChatWindow({
   onConversationCreated,
   onSelectConversation,
   onObjectiveChange,
-  onOutcomeChange,
+  onHumanScoreChange,
+  onAttackChange,
   labels,
   onLabelsChange,
   onNavigate,
@@ -134,6 +140,9 @@ export default function ChatWindow({
   relatedConversationCount,
   objective = '',
   outcome,
+  automatedScore,
+  humanScore,
+  lastResponseMessagePieceId,
   scenarioResultId,
 }: ChatWindowProps) {
   const styles = useChatWindowStyles()
@@ -141,7 +150,6 @@ export default function ChatWindow({
   const restoreFocusSourceAttributes = useRestoreFocusSource()
   const [messages, setMessages] = useState<Message[]>([])
   const [pendingObjective, setPendingObjective] = useState('')
-  const [objectiveEditRequestId, setObjectiveEditRequestId] = useState(0)
   // Track sending state per conversation so parallel conversations can send independently
   const [sendingConversations, setSendingConversations] = useState<Set<string>>(new Set())
   /** True while an async message fetch is in-flight */
@@ -487,6 +495,7 @@ export default function ChatWindow({
         labels: labels ?? undefined,
         converter_ids: converterIds,
       })
+      onAttackChange?.(response.attack)
 
       // Clear converter state after successful send
       setPieceConversions({})
@@ -703,19 +712,54 @@ export default function ChatWindow({
     isMutationLocked,
   ])
 
-  const handleManualScore = useCallback(async (messageId: string, score: ManualScoreInput) => {
-    if (!attackResultId || !activeConversationId || !(objective || pendingObjective).trim()) return
-
-    await scoresApi.createManualScore({
-      attack_result_id: attackResultId,
-      message_id: messageId,
-      ...score,
-    })
-    if (score.update_attack) {
-      onOutcomeChange?.(score.value ? 'success' : 'failure')
+  const handleHumanScoreUpdate = useCallback(async (value: boolean, rationale: string): Promise<void> => {
+    if (
+      !attackResultId
+      || !lastResponseMessagePieceId
+      || !(objective || pendingObjective).trim()
+      || isMutationLocked
+    ) {
+      return
     }
-    await loadConversation(attackResultId, activeConversationId)
-  }, [activeConversationId, attackResultId, loadConversation, objective, onOutcomeChange, pendingObjective])
+
+    const score = await scoresApi.createManualScore({
+      attack_result_id: attackResultId,
+      message_id: lastResponseMessagePieceId,
+      value,
+      rationale,
+      update_attack: true,
+    })
+    onHumanScoreChange?.(score, value ? 'success' : 'failure')
+    if (activeConversationId) {
+      await loadConversation(attackResultId, activeConversationId)
+    }
+  }, [
+    activeConversationId,
+    attackResultId,
+    isMutationLocked,
+    lastResponseMessagePieceId,
+    loadConversation,
+    objective,
+    onHumanScoreChange,
+    pendingObjective,
+  ])
+
+  const handleHumanScoreRemove = useCallback(async (): Promise<void> => {
+    if (!attackResultId || !humanScore || isMutationLocked) return
+
+    const attack = await attacksApi.removeHumanScore(attackResultId)
+    onHumanScoreChange?.(null, attack.outcome ?? 'undetermined')
+    if (activeConversationId) {
+      await loadConversation(attackResultId, activeConversationId)
+    }
+  }, [
+    activeConversationId,
+    attackResultId,
+    humanScore,
+    isMutationLocked,
+    loadConversation,
+    onHumanScoreChange,
+  ])
 
   const handleAddObjective = useCallback(async (newObjective: string): Promise<void> => {
     if (!attackResultId) {
@@ -907,9 +951,18 @@ export default function ChatWindow({
           </div>
         </div>
         <ObjectiveHeader
-          key={`${attackResultId ?? 'new'}-${objective}-${pendingObjective}-${objectiveEditRequestId}`}
+          key={`${attackResultId ?? 'new'}-${objective}-${pendingObjective}`}
           objective={objective || pendingObjective}
           outcome={outcome}
+          automatedScore={automatedScore}
+          humanScore={humanScore}
+          canUpdateOutcome={
+            Boolean(attackResultId)
+            && Boolean(lastResponseMessagePieceId)
+            && !isMutationLocked
+          }
+          onUpdateHumanScore={handleHumanScoreUpdate}
+          onRemoveHumanScore={handleHumanScoreRemove}
           canAdd={
             Boolean(activeTarget)
             && !isLoadingAttack
@@ -918,7 +971,6 @@ export default function ChatWindow({
             && !isMutationLocked
           }
           onAdd={handleAddObjective}
-          editRequestId={objectiveEditRequestId}
         />
         {systemMessage && <SystemPromptBanner content={systemMessage.content} />}
         <MessageList
@@ -933,9 +985,6 @@ export default function ChatWindow({
           isCrossTarget={isCrossTargetLocked || isTargetResolutionLocked}
           noTargetSelected={!activeTarget}
           globalMarkdown={globalMarkdown}
-          onManualScore={attackResultId ? handleManualScore : undefined}
-          canManualScore={Boolean((objective || pendingObjective).trim())}
-          onManualScoreObjectiveRequired={() => setObjectiveEditRequestId(requestId => requestId + 1)}
         />
         <ChatInputArea
           ref={inputBoxRef}

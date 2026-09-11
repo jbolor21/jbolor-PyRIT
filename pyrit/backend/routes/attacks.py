@@ -254,6 +254,30 @@ async def update_attack(  # pyrit-async-suffix-exempt
     return attack
 
 
+@router.delete(
+    "/{attack_result_id}/human-score",
+    response_model=AttackSummary,
+    responses={
+        404: {"model": ProblemDetail, "description": "Attack not found"},
+    },
+)
+async def remove_human_score(attack_result_id: str) -> AttackSummary:  # pyrit-async-suffix-exempt
+    """
+    Remove the attack's human-score override.
+
+    Returns:
+        AttackSummary: Updated attack details.
+    """
+    service = get_attack_service()
+    attack = await service.remove_human_score_async(attack_result_id=attack_result_id)
+    if not attack:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Attack '{attack_result_id}' not found",
+        )
+    return attack
+
+
 @router.get(
     "/{attack_result_id}/messages",
     response_model=ConversationMessagesResponse,

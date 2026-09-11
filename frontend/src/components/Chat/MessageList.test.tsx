@@ -117,131 +117,6 @@ describe("MessageList", () => {
     expect(screen.getByText("Assistant message test")).toBeInTheDocument();
   });
 
-  it("should submit a manual score and update the attack when selected", async () => {
-    const user = userEvent.setup();
-    const onManualScore = jest.fn().mockResolvedValue(undefined);
-    const messages: Message[] = [
-      {
-        role: "assistant",
-        content: "Response to score",
-        timestamp: new Date().toISOString(),
-        displayPieces: [
-          {
-            type: "text",
-            pieceId: "piece-manual",
-            pieceIndex: 0,
-            content: "Response to score",
-            scores: [],
-          },
-        ],
-      },
-    ];
-
-    render(
-      <TestWrapper>
-        <MessageList messages={messages} onManualScore={onManualScore} />
-      </TestWrapper>
-    );
-
-    const messageActions = screen.getByTestId("message-actions-0");
-    await user.click(within(messageActions).getByRole("button", { name: "Add manual score" }));
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-    await user.click(screen.getByRole("radio", { name: "Yes" }));
-    expect(screen.getByRole("checkbox", { name: "Update attack score and outcome" })).toBeChecked();
-    await user.type(screen.getByLabelText("Rationale (optional)"), "Objective achieved");
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() => {
-      expect(onManualScore).toHaveBeenCalledWith("piece-manual", {
-        value: true,
-        rationale: "Objective achieved",
-        update_attack: true,
-      });
-    });
-    expect(screen.queryByText("Manual score")).not.toBeInTheDocument();
-  });
-
-  it("should submit a true false manual score for a persisted message piece", async () => {
-    const user = userEvent.setup();
-    const onManualScore = jest.fn().mockResolvedValue(undefined);
-    const messages: Message[] = [
-      {
-        role: "assistant",
-        content: "Response to score",
-        timestamp: new Date().toISOString(),
-        displayPieces: [
-          {
-            type: "text",
-            pieceId: "piece-manual",
-            pieceIndex: 0,
-            content: "Response to score",
-            scores: [],
-          },
-        ],
-      },
-    ];
-
-    render(
-      <TestWrapper>
-        <MessageList messages={messages} onManualScore={onManualScore} />
-      </TestWrapper>
-    );
-
-    await user.click(screen.getByRole("button", { name: "Add manual score" }));
-    await user.click(screen.getByRole("radio", { name: "No" }));
-    await user.type(screen.getByLabelText("Rationale (optional)"), "Objective achieved");
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() => {
-      expect(onManualScore).toHaveBeenCalledWith("piece-manual", {
-        value: false,
-        rationale: "Objective achieved",
-        update_attack: true,
-      });
-    });
-  });
-
-  it("should request an objective instead of opening manual scoring when one is missing", async () => {
-    const user = userEvent.setup();
-    const onObjectiveRequired = jest.fn();
-    const messages: Message[] = [
-      {
-        role: "assistant",
-        content: "Response to score",
-        timestamp: new Date().toISOString(),
-        displayPieces: [
-          {
-            type: "text",
-            pieceId: "piece-manual",
-            pieceIndex: 0,
-            content: "Response to score",
-            scores: [],
-          },
-        ],
-      },
-    ];
-
-    render(
-      <TestWrapper>
-        <MessageList
-          messages={messages}
-          onManualScore={jest.fn().mockResolvedValue(undefined)}
-          canManualScore={false}
-          onManualScoreObjectiveRequired={onObjectiveRequired}
-        />
-      </TestWrapper>
-    );
-
-    const manualScoreButton = screen.getByRole("button", { name: "Add manual score" });
-    expect(within(manualScoreButton).getByTestId("manual-score-objective-warning-icon")).toBeInTheDocument();
-    await user.hover(manualScoreButton);
-    expect(await screen.findByText("Manual scoring requires an objective. Click to add one.")).toBeInTheDocument();
-    await user.click(manualScoreButton);
-
-    expect(onObjectiveRequired).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Manual score")).not.toBeInTheDocument();
-  });
-
   it("should show the message score and its details when present", async () => {
     const user = userEvent.setup();
     const scoredMessages: Message[] = [
@@ -278,56 +153,16 @@ describe("MessageList", () => {
       name: /score 0.9 from selfaskscalescorer, objective score/i,
     });
     expect(scoreButton).toBeInTheDocument();
-    expect(scoreButton).toHaveTextContent("Score: 0.9");
+    expect(scoreButton).toHaveTextContent("Final score: 0.9");
 
     await user.click(scoreButton);
 
-    expect(screen.getByText("float_scale")).toBeInTheDocument();
+    expect(screen.queryByText("float_scale")).not.toBeInTheDocument();
     expect(screen.getByText("SelfAskScaleScorer")).toBeInTheDocument();
-    expect(screen.getByText("Yes")).toBeInTheDocument();
-    expect(screen.getByText("Piece 1 · text")).toBeInTheDocument();
+    expect(screen.getByText("Final score")).toBeInTheDocument();
+    expect(screen.queryByText("Piece 1 · text")).not.toBeInTheDocument();
     expect(screen.getByText("harmful")).toBeInTheDocument();
     expect(screen.getByText("The response contains harmful content.")).toBeInTheDocument();
-  });
-
-  it("should allow adding another manual score when a response already has a score", () => {
-    const scoredMessage: Message = {
-      role: "assistant",
-      content: "Scored response",
-      timestamp: new Date().toISOString(),
-      displayPieces: [
-        {
-          type: "text",
-          pieceId: "already-scored-piece",
-          pieceIndex: 0,
-          content: "Scored response",
-          scores: [
-            {
-              id: "existing-score",
-              message_piece_id: "already-scored-piece",
-              scorer_type: "ExistingScorer",
-              score_type: "true_false",
-              score_value: "True",
-              pieceIndex: 0,
-              pieceType: "text",
-              sourceLabel: "Piece 1 · text",
-              timestamp: "2026-01-01T00:00:00Z",
-            },
-          ],
-        },
-      ],
-    };
-
-    render(
-      <TestWrapper>
-        <MessageList
-          messages={[scoredMessage]}
-          onManualScore={jest.fn().mockResolvedValue(undefined)}
-        />
-      </TestWrapper>
-    );
-
-    expect(screen.getByRole("button", { name: "Add manual score" })).toBeInTheDocument();
   });
 
   it("should show an undetermined score in the chip, tooltip, label, and details", async () => {
@@ -464,29 +299,28 @@ describe("MessageList", () => {
 
     expect(screen.getByRole("tablist", { name: "Scores" })).toBeInTheDocument();
     const objectiveTab = screen.getByRole("tab", {
-      name: /score false from oldscorer, objective score/i,
+      name: /final score from oldscorer: false/i,
     });
     const auxiliaryTab = screen.getByRole("tab", {
-      name: /score 0.9 from newscorer/i,
+      name: /score from newscorer: 0.9/i,
     });
     expect(screen.getAllByRole("tab")).toEqual([objectiveTab, auxiliaryTab]);
-    expect(objectiveTab).toHaveTextContent("False");
+    expect(objectiveTab).toHaveTextContent("Final Score");
     expect(objectiveTab).not.toHaveTextContent("Score:");
-    expect(objectiveTab).not.toHaveTextContent("OldScorer");
     expect(objectiveTab).not.toHaveTextContent("Objective");
-    expect(auxiliaryTab).toHaveTextContent("0.9");
+    expect(auxiliaryTab).toHaveTextContent("Score 2");
     expect(auxiliaryTab).not.toHaveTextContent("Score:");
-    expect(auxiliaryTab).not.toHaveTextContent("NewScorer");
     expect(objectiveTab).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", objectiveTab.id);
-    expect(screen.getByText("Score:")).toBeInTheDocument();
-    expect(screen.getByText("true_false")).toBeInTheDocument();
-    expect(screen.getByText("OldScorer")).toBeInTheDocument();
-    expect(screen.getByText("Yes")).toBeInTheDocument();
+    expect(screen.queryByText("Score:")).not.toBeInTheDocument();
+    expect(screen.queryByText("true_false")).not.toBeInTheDocument();
+    expect(screen.queryByText("Piece 1 · text")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("tabpanel")).getByText("OldScorer")).toBeInTheDocument();
+    expect(screen.getByText("Final score")).toBeInTheDocument();
 
     await user.hover(auxiliaryTab);
     expect(
-      await screen.findByText("Score 0.9 from NewScorer, Piece 2 · text")
+      await screen.findByText("Score from NewScorer: 0.9")
     ).toBeInTheDocument();
     await user.unhover(auxiliaryTab);
 
@@ -494,15 +328,15 @@ describe("MessageList", () => {
 
     expect(auxiliaryTab).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", auxiliaryTab.id);
-    expect(screen.getByText("float_scale")).toBeInTheDocument();
-    expect(screen.getByText("NewScorer")).toBeInTheDocument();
-    expect(screen.getByText("No")).toBeInTheDocument();
+    expect(screen.queryByText("float_scale")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("tabpanel")).getByText("NewScorer")).toBeInTheDocument();
+    expect(screen.getByText("Supporting score")).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: /view 2 scores, displayed score false from oldscorer, objective score/i,
       })
     ).toBeInTheDocument();
-    expect(stackedScoreButton).toHaveTextContent("Score: False");
+    expect(stackedScoreButton).toHaveTextContent("Final score: False");
   });
 
   it("should preserve a long stacked-score value outside its ellipsized chip", async () => {
@@ -604,7 +438,7 @@ describe("MessageList", () => {
     await user.click(trigger);
 
     const trueTab = screen.getByRole("tab", {
-      name: /score true from booleanscorer/i,
+      name: /score from booleanscorer: true/i,
     });
     await user.click(trueTab);
     expect(trueTab).toHaveAttribute("aria-selected", "true");
@@ -614,10 +448,10 @@ describe("MessageList", () => {
     await user.keyboard("{Enter}");
 
     const reopenedTrueTab = screen.getByRole("tab", {
-      name: /score true from booleanscorer/i,
+      name: /score from booleanscorer: true/i,
     });
     const reopenedLatestTab = screen.getByRole("tab", {
-      name: /score 0.91 from scalescorer/i,
+      name: /score from scalescorer: 0.91/i,
     });
     expect(reopenedTrueTab).toHaveAttribute("aria-selected", "true");
     expect(reopenedTrueTab).toHaveFocus();
@@ -671,10 +505,10 @@ describe("MessageList", () => {
 
     await user.click(stackedScoreButton);
     await user.click(screen.getByRole("tab", {
-      name: /score false from oldscorer/i,
+      name: /score from oldscorer: false/i,
     }));
 
-    expect(screen.getByText("OldScorer")).toBeInTheDocument();
+    expect(within(screen.getByRole("tabpanel")).getByText("OldScorer")).toBeInTheDocument();
     expect(stackedScoreButton).toHaveTextContent("Score: 0.9");
   });
 
@@ -797,7 +631,7 @@ describe("MessageList", () => {
     await user.click(screen.getByRole("button", { name: /view 4 scores/i }));
     expect(screen.getAllByRole("tab")).toHaveLength(2);
     const objectiveTab = screen.getByRole("tab", {
-      name: /score 1 from objectivescorer, objective score/i,
+      name: /final score from objectivescorer: 1/i,
     });
     expect(objectiveTab).toHaveAttribute("aria-selected", "true");
     const moreScoresButton = screen.getByRole("button", { name: "More scores, 2 hidden" });
@@ -806,7 +640,7 @@ describe("MessageList", () => {
     expect(objectiveTab).toHaveAttribute("aria-selected", "true");
 
     const overflowScore = screen.getByRole("menuitem", {
-      name: /3 · overflowscorer/i,
+      name: /score 4 · overflowscorer · 3/i,
     });
     expect(overflowScore).toBeInTheDocument();
     expect(
@@ -819,15 +653,15 @@ describe("MessageList", () => {
     await user.click(overflowScore);
 
     expect(
-      screen.getByRole("tab", { name: /score 3 from overflowscorer/i })
+      screen.getByRole("tab", { name: /score from overflowscorer: 3/i })
     ).toHaveAttribute("aria-selected", "true");
     expect(
-      screen.queryByRole("tab", { name: /score 0 from firstscorer/i })
+      screen.queryByRole("tab", { name: /score from firstscorer: 0/i })
     ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "More scores, 2 hidden" }));
     expect(
-      screen.getByRole("menuitem", { name: /0 · firstscorer/i })
+      screen.getByRole("menuitem", { name: /score 2 · firstscorer · 0/i })
     ).toBeInTheDocument();
   });
 
@@ -874,18 +708,18 @@ describe("MessageList", () => {
     expect(screen.getAllByRole("tab")).toHaveLength(2);
 
     await user.click(screen.getByRole("button", { name: "More scores, 1 hidden" }));
-    await user.click(screen.getByRole("menuitem", { name: /2 · thirdscorer/i }));
+    await user.click(screen.getByRole("menuitem", { name: /score 3 · thirdscorer · 2/i }));
 
     expect(screen.getAllByRole("tab")).toHaveLength(2);
     expect(
-      screen.getByRole("tab", { name: /score 2 from thirdscorer/i })
+      screen.getByRole("tab", { name: /score from thirdscorer: 2/i })
     ).toHaveAttribute("aria-selected", "true");
     expect(
       screen.getByRole("tab", { name: /objectivescorer/i })
     ).toBeInTheDocument();
   });
 
-  it("should disambiguate identical overflow scores with piece, category, and ordinal context", async () => {
+  it("should number identical overflow scores independently", async () => {
     Object.defineProperty(HTMLElement.prototype, "clientWidth", {
       configurable: true,
       get() {
@@ -948,13 +782,13 @@ describe("MessageList", () => {
     await user.click(screen.getByRole("button", { name: "More scores, 3 hidden" }));
 
     expect(screen.getByRole("menuitem", {
-      name: "0.5 · SharedScorer · Piece 2 · text · Categories: alpha",
+      name: "Score 3 · SharedScorer · 0.5 · Categories: alpha",
     })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", {
-      name: "0.5 · SharedScorer · Piece 3 · text · Categories: beta · 1 of 2",
+      name: "Score 4 · SharedScorer · 0.5 · Categories: beta",
     })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", {
-      name: "0.5 · SharedScorer · Piece 3 · text · Categories: beta · 2 of 2",
+      name: "Score 5 · SharedScorer · 0.5 · Categories: beta",
     })).toBeInTheDocument();
   });
 
@@ -1729,34 +1563,6 @@ describe("MessageList", () => {
 
     expect(screen.queryByTestId("copy-to-input-btn-0")).not.toBeInTheDocument();
     expect(screen.queryByTestId("download-btn-0-0")).not.toBeInTheDocument();
-  });
-
-  it("should not show manual score controls on user messages", () => {
-    const userMessage: Message = {
-      role: "user",
-      content: "User prompt",
-      timestamp: new Date().toISOString(),
-      displayPieces: [
-        {
-          type: "text",
-          pieceId: "user-piece",
-          pieceIndex: 0,
-          content: "User prompt",
-          scores: [],
-        },
-      ],
-    };
-
-    render(
-      <TestWrapper>
-        <MessageList
-          messages={[userMessage]}
-          onManualScore={jest.fn().mockResolvedValue(undefined)}
-        />
-      </TestWrapper>
-    );
-
-    expect(screen.queryByRole("button", { name: "Add manual score" })).not.toBeInTheDocument();
   });
 
   it("should call onCopyToInput when 'Copy to input' button is clicked", async () => {

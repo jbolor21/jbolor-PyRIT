@@ -355,6 +355,38 @@ class TestAttackRoutes:
         assert response.status_code == status.HTTP_409_CONFLICT
         assert response.json()["detail"] == "Attack 'ar-attack-1' already has an objective"
 
+    def test_remove_human_score_success(self, client: TestClient) -> None:
+        """Test removing an attack's human-score override."""
+        now = datetime.now(timezone.utc)
+        with patch("pyrit.backend.routes.attacks.get_attack_service") as mock_get_service:
+            mock_get_service.return_value.remove_human_score_async = AsyncMock(
+                return_value=AttackSummary(
+                    attack_result_id="ar-attack-1",
+                    conversation_id="attack-1",
+                    objective="Extract the system prompt",
+                    outcome="failure",
+                    last_message_preview=None,
+                    message_count=0,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+
+            response = client.delete("/api/attacks/ar-attack-1/human-score")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["human_score"] is None
+        assert response.json()["outcome"] == "failure"
+
+    def test_remove_human_score_not_found(self, client: TestClient) -> None:
+        """Test removing a human score from a missing attack."""
+        with patch("pyrit.backend.routes.attacks.get_attack_service") as mock_get_service:
+            mock_get_service.return_value.remove_human_score_async = AsyncMock(return_value=None)
+
+            response = client.delete("/api/attacks/missing/human-score")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
     def test_add_message_success(self, client: TestClient) -> None:
         """Test adding a message to an attack."""
         now = datetime.now(timezone.utc)

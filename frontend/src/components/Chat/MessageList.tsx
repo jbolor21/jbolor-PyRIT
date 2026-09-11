@@ -7,8 +7,6 @@ import {
   MessageBarBody,
   Button,
   Badge,
-  Checkbox,
-  Field,
   Menu,
   MenuItem,
   MenuList,
@@ -17,13 +15,10 @@ import {
   Popover,
   PopoverSurface,
   PopoverTrigger,
-  Radio,
-  RadioGroup,
   Tab,
   TabList,
   Tooltip,
   Spinner,
-  Textarea,
   mergeClasses,
 } from '@fluentui/react-components'
 import {
@@ -32,7 +27,6 @@ import {
   ArrowReplyRegular,
   BranchForkRegular,
   ChatAddRegular,
-  DataTrendingRegular,
   MoreHorizontalRegular,
   OpenRegular,
 } from '@fluentui/react-icons'
@@ -40,7 +34,6 @@ import MarkdownContent from '@/components/Markdown/MarkdownContent'
 
 import type {
   DisplayScore,
-  ManualScoreInput,
   Message,
   MessageAttachment,
   MessageDisplayPiece,
@@ -69,12 +62,6 @@ interface MessageListProps {
   noTargetSelected?: boolean
   /** Conversation-wide default: render message text as Markdown. */
   globalMarkdown?: boolean
-  /** Persist a manual score for a message piece. */
-  onManualScore?: (messageId: string, score: ManualScoreInput) => Promise<void>
-  /** Whether the attack has the objective required for manual scoring. */
-  canManualScore?: boolean
-  /** Prompt the user to add the missing attack objective. */
-  onManualScoreObjectiveRequired?: () => void
 }
 
 /** Image that shows a spinner while loading. */
@@ -128,142 +115,7 @@ function scoreDisplayValue(score: DisplayScore): string {
 }
 
 function scoreDisplayLabel(score: DisplayScore): string {
-  return `Score: ${scoreDisplayValue(score)}`
-}
-
-interface ManualScorePopoverProps {
-  messageId: string
-  onSave: (messageId: string, score: ManualScoreInput) => Promise<void>
-  canManualScore: boolean
-  onObjectiveRequired?: () => void
-}
-
-function ManualScorePopover({
-  messageId,
-  onSave,
-  canManualScore,
-  onObjectiveRequired,
-}: ManualScorePopoverProps) {
-  const styles = useMessageListStyles()
-  const [isOpen, setIsOpen] = useState(false)
-  const [booleanValue, setBooleanValue] = useState<boolean | null>(null)
-  const [rationale, setRationale] = useState('')
-  const [updateAttack, setUpdateAttack] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState('')
-  const isFormValid = booleanValue !== null
-
-  const handleSave = async () => {
-    if (!isFormValid) return
-
-    setIsSaving(true)
-    setError('')
-    try {
-      if (booleanValue === null) return
-      const score: ManualScoreInput = { value: booleanValue, rationale, update_attack: updateAttack }
-      await onSave(messageId, score)
-      setIsOpen(false)
-      setBooleanValue(null)
-      setRationale('')
-      setUpdateAttack(true)
-    } catch {
-      setError('Unable to save the manual score.')
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  return (
-    <Popover
-      withArrow
-      open={isOpen}
-      onOpenChange={(_event: unknown, data: { open: boolean }) => {
-        if (data.open && !canManualScore) {
-          onObjectiveRequired?.()
-          return
-        }
-        setIsOpen(data.open)
-        if (!data.open) setError('')
-      }}
-    >
-      <Tooltip
-        content={
-          canManualScore
-            ? 'Add manual score'
-            : 'Manual scoring requires an objective. Click to add one.'
-        }
-        relationship="label"
-      >
-        <PopoverTrigger disableButtonEnhancement>
-          <Button
-            appearance="subtle"
-            size="small"
-            icon={
-              <span className={styles.manualScoreIcon}>
-                <DataTrendingRegular />
-                {!canManualScore && (
-                  <span
-                    className={styles.manualScoreWarningIcon}
-                    data-testid="manual-score-objective-warning-icon"
-                    aria-hidden="true"
-                  >
-                    !
-                  </span>
-                )}
-              </span>
-            }
-            aria-label="Add manual score"
-            className={styles.messageActionButton}
-          />
-        </PopoverTrigger>
-      </Tooltip>
-      <PopoverSurface className={styles.manualScorePopover} data-testid="manual-score-popover">
-        <Text weight="semibold">Manual score</Text>
-        <Field label="Was the attack objective achieved?" required>
-          <RadioGroup
-            layout="horizontal"
-            value={booleanValue === null ? '' : String(booleanValue)}
-            onChange={(_event, data) => setBooleanValue(data.value === 'true')}
-          >
-            <Radio value="true" label="Yes" />
-            <Radio value="false" label="No" />
-          </RadioGroup>
-        </Field>
-        <Field label="Rationale (optional)">
-          <Textarea
-            value={rationale}
-            onChange={(_event, data) => setRationale(data.value)}
-            aria-label="Rationale (optional)"
-            resize="vertical"
-          />
-        </Field>
-        <Checkbox
-          checked={updateAttack}
-          onChange={(_event, data) => setUpdateAttack(data.checked === true)}
-          label="Update attack score and outcome"
-        />
-        {error && <Text role="alert">{error}</Text>}
-        <div className={styles.manualScoreActions}>
-          <Button
-            appearance="secondary"
-            className={styles.manualScoreActionButton}
-            onClick={() => setIsOpen(false)}
-            disabled={isSaving}
-          >
-            Cancel
-          </Button>
-          <Button
-            appearance="primary"
-            className={styles.manualScoreActionButton}
-            onClick={handleSave}
-            disabled={!isFormValid || isSaving}
-          >
-            {isSaving ? 'Saving...' : 'Save'}
-          </Button>
-        </div>
-      </PopoverSurface>
-    </Popover>
-  )
+  return `${score.is_objective_score ? 'Final score' : 'Score'}: ${scoreDisplayValue(score)}`
 }
 
 function ScoreDetails({ score, testId }: { score: DisplayScore; testId: string }) {
@@ -278,23 +130,15 @@ function ScoreDetails({ score, testId }: { score: DisplayScore; testId: string }
         <Badge appearance="tint" color="brand" size="small" className={styles.scoreValue}>{scoreDisplayValue(score)}</Badge>
       </div>
       <div className={styles.scoreRow}>
-        <Text size={200} weight="semibold" className={styles.scoreLabel}>Type</Text>
-        <Text size={200} className={styles.scoreValue}>{score.score_type}</Text>
-      </div>
-      <div className={styles.scoreRow}>
         <Text size={200} weight="semibold" className={styles.scoreLabel}>Scorer</Text>
         <Text size={200} className={styles.scoreValue}>{score.scorer_type}</Text>
       </div>
       <div className={styles.scoreRow}>
-        <Text size={200} weight="semibold" className={styles.scoreLabel}>Objective</Text>
-        <Text size={200} className={styles.scoreValue}>{score.is_objective_score ? 'Yes' : 'No'}</Text>
+        <Text size={200} weight="semibold" className={styles.scoreLabel}>Result role</Text>
+        <Text size={200} className={styles.scoreValue}>
+          {score.is_objective_score ? 'Final score' : 'Supporting score'}
+        </Text>
       </div>
-      {score.sourceLabel && (
-        <div className={styles.scoreRow}>
-          <Text size={200} weight="semibold" className={styles.scoreLabel}>Piece</Text>
-          <Text size={200} className={styles.scoreValue}>{score.sourceLabel}</Text>
-        </div>
-      )}
       {categories.length > 0 && (
         <div className={styles.scoreRow}>
           <Text size={200} weight="semibold" className={styles.scoreLabel}>Category</Text>
@@ -362,23 +206,37 @@ function ScoreOverflowMenuItem({ score, label, onSelect }: ScoreOverflowMenuItem
 
 interface ScoreOverflowMenuProps {
   scores: DisplayScore[]
+  orderedScores: DisplayScore[]
   onSelect: (scoreId: string) => void
 }
 
 // Keep these measurements synchronized with scoreTab, scoreTabs.columnGap,
 // and scoreOverflowButton in MessageList.styles.ts.
-const SCORE_TAB_WIDTH_PX = 72
+const SCORE_TAB_WIDTH_PX = 152
 const SCORE_TAB_GAP_PX = 4
 const SCORE_OVERFLOW_BUTTON_WIDTH_PX = 112
 
-function getScoreOverflowLabels(scores: DisplayScore[]): string[] {
+function scoreTabLabel({
+  score,
+  orderedScores,
+}: {
+  score: DisplayScore
+  orderedScores: DisplayScore[]
+}): string {
+  if (score.is_objective_score) return 'Final Score'
+  return `Score ${orderedScores.indexOf(score) + 1}`
+}
+
+function getScoreOverflowLabels(
+  scores: DisplayScore[],
+  orderedScores: DisplayScore[],
+): string[] {
   const baseLabels = scores.map((score) => {
     const categories = score.score_category?.filter(Boolean) ?? []
     return [
-      scoreDisplayValue(score),
+      scoreTabLabel({ score, orderedScores }),
       score.scorer_type,
-      score.is_objective_score ? 'Objective' : '',
-      score.sourceLabel,
+      scoreDisplayValue(score),
       categories.length > 0 ? `Categories: ${categories.join(', ')}` : '',
     ].filter(Boolean).join(' · ')
   })
@@ -395,9 +253,9 @@ function getScoreOverflowLabels(scores: DisplayScore[]): string[] {
   })
 }
 
-function ScoreOverflowMenu({ scores, onSelect }: ScoreOverflowMenuProps) {
+function ScoreOverflowMenu({ scores, orderedScores, onSelect }: ScoreOverflowMenuProps) {
   const styles = useMessageListStyles()
-  const labels = getScoreOverflowLabels(scores)
+  const labels = getScoreOverflowLabels(scores, orderedScores)
 
   return (
     <Menu>
@@ -568,7 +426,6 @@ function MessageScores({ scores, groupId }: { scores: DisplayScore[]; groupId: s
           </PopoverTrigger>
         </Tooltip>
         <PopoverSurface className={styles.multiScorePopover}>
-          <Text size={200} weight="semibold">Score:</Text>
           <div ref={tabBarRef} className={styles.scoreTabBar} data-score-tab-bar>
             <TabList
               selectedValue={selectedScore.id}
@@ -580,7 +437,9 @@ function MessageScores({ scores, groupId }: { scores: DisplayScore[]; groupId: s
             >
               {visibleScores.map((score) => {
                 const scoreIndex = scores.indexOf(score)
-                const scoreContext = `Score ${scoreDisplayValue(score)} from ${score.scorer_type}${score.is_objective_score ? ', objective score' : ''}${score.sourceLabel ? `, ${score.sourceLabel}` : ''}`
+                const scoreContext = `${
+                  score.is_objective_score ? 'Final score from' : 'Score from'
+                } ${score.scorer_type}: ${scoreDisplayValue(score)}`
                 return (
                   <Tooltip
                     key={score.id}
@@ -598,7 +457,7 @@ function MessageScores({ scores, groupId }: { scores: DisplayScore[]; groupId: s
                       data-testid={`message-score-tab-${groupId}-${scoreIndex}`}
                     >
                       <span className={styles.scoreTabValue}>
-                        {scoreDisplayValue(score)}
+                        {scoreTabLabel({ score, orderedScores })}
                       </span>
                     </Tab>
                   </Tooltip>
@@ -608,6 +467,7 @@ function MessageScores({ scores, groupId }: { scores: DisplayScore[]; groupId: s
             {overflowScores.length > 0 && (
               <ScoreOverflowMenu
                 scores={overflowScores}
+                orderedScores={orderedScores}
                 onSelect={setSelectedScoreId}
               />
             )}
@@ -694,7 +554,7 @@ function getRenderMessagePieces(message: Message, messageIndex: number): RenderM
   return pieces
 }
 
-export default function MessageList({ messages, onCopyToInput, onCopyToNewConversation, onBranchConversation, onBranchAttack, isLoading, isSingleTurn, isOperatorLocked, isCrossTarget, noTargetSelected, globalMarkdown = false, onManualScore, canManualScore = true, onManualScoreObjectiveRequired }: MessageListProps) {
+export default function MessageList({ messages, onCopyToInput, onCopyToNewConversation, onBranchConversation, onBranchAttack, isLoading, isSingleTurn, isOperatorLocked, isCrossTarget, noTargetSelected, globalMarkdown = false }: MessageListProps) {
   const styles = useMessageListStyles()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -1047,16 +907,6 @@ export default function MessageList({ messages, onCopyToInput, onCopyToNewConver
                     </Tooltip>
                   ))}
 
-                  {/* Manual score: one control per persisted message piece */}
-                  {message.displayPieces && onManualScore && renderPieces.map(({ piece }) => (
-                    <ManualScorePopover
-                      key={piece.pieceId}
-                      messageId={piece.pieceId}
-                      onSave={onManualScore}
-                      canManualScore={canManualScore}
-                      onObjectiveRequired={onManualScoreObjectiveRequired}
-                    />
-                  ))}
                 </div>
               )}
 

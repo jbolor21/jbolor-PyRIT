@@ -1,4 +1,5 @@
 import { Badge, tokens } from '@fluentui/react-components'
+import type { BadgeProps } from '@fluentui/react-components'
 import {
   CheckmarkCircleRegular,
   DismissCircleRegular,
@@ -25,16 +26,27 @@ const OUTCOME_COLORS: Record<AttackOutcome, 'success' | 'danger' | 'informative'
 interface OutcomeBadgeProps {
   outcome?: AttackOutcome | null
   testId?: string
+  className?: string
+  appearance?: BadgeProps['appearance']
+  size?: BadgeProps['size']
 }
 
-export default function OutcomeBadge({ outcome = 'undetermined', testId }: OutcomeBadgeProps) {
+export default function OutcomeBadge({
+  outcome = 'undetermined',
+  testId,
+  className,
+  appearance = 'filled',
+  size,
+}: OutcomeBadgeProps) {
   const normalizedOutcome = outcome ?? 'undetermined'
 
   return (
     <Badge
-      appearance="filled"
+      appearance={appearance}
       color={OUTCOME_COLORS[normalizedOutcome]}
       icon={OUTCOME_ICONS[normalizedOutcome]}
+      size={size}
+      className={className}
       data-testid={testId}
     >
       {normalizedOutcome}

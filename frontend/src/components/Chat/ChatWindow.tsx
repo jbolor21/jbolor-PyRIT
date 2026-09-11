@@ -39,10 +39,12 @@ import { buildMessagePieces, backendMessagesToFrontend } from '../../utils/messa
 import { exportConversation } from '../../utils/conversationExport'
 import type { ExportFormat } from '../../utils/conversationExport'
 import type {
+  AddMessageRequest,
   AttackOutcome,
   AttackSummary,
   AttackTargetResolutionStatus,
   BackendScore,
+  CreateAttackRequest,
   Message,
   MessageAttachment,
   TargetInstance,
@@ -95,8 +97,8 @@ interface ChatWindowProps {
   labels?: Record<string, string>
   onLabelsChange?: (labels: Record<string, string>) => void
   onNavigate?: (view: ViewName) => void
-  /** Labels from the loaded attack (for operator locking). Null for new attacks. */
-  attackLabels?: Record<string, string> | null
+  /** Operator from the loaded attack (for operator locking). Null for new attacks. */
+  attackOperator?: string | null
   /** Target info that the current attack was started with (for cross-target guard). */
   attackTarget?: TargetInfo | null
   /** Result of resolving the persisted attack target against the current registry. */
@@ -132,7 +134,7 @@ export default function ChatWindow({
   labels,
   onLabelsChange,
   onNavigate,
-  attackLabels,
+  attackOperator,
   attackTarget,
   targetResolutionStatus = 'idle',
   onRetryTargetResolution,
@@ -257,10 +259,9 @@ export default function ChatWindow({
     && isTargetResolutionBlocking(targetResolutionStatus),
   )
   const currentOperator = labels?.operator
-  const attackOperator = attackLabels?.operator
   // Existing attacks are operator-locked when their operator differs from the current one.
   const isOperatorLocked = Boolean(
-    attackResultId && attackLabels && attackOperator && currentOperator && attackOperator !== currentOperator,
+    attackResultId && attackOperator && currentOperator && attackOperator !== currentOperator,
   )
   // They are cross-target locked when the selected target's canonical hash differs from the persisted target.
   const isCrossTargetLocked = Boolean(
@@ -448,12 +449,15 @@ export default function ChatWindow({
       let currentConversationId = conversationId
       let currentActiveConversationId = activeConversationId
       if (!currentAttackResultId) {
-        const createResponse = await attacksApi.createAttack({
+        const createRequest: CreateAttackRequest = {
           target_registry_name: activeTarget.target_registry_name,
           name: pendingObjective || undefined,
-          labels: labels,
+          // TODO(PyRIT 1.4): Pass only dedicated attribution after legacy label aliases are removed.
+          // The create-attack API normalizes these aliases through _AttackAttributionInput.
+          labels,
           system_prompt: supportsSystemPrompt ? systemPrompt.trim() || undefined : undefined,
-        })
+        }
+        const createResponse = await attacksApi.createAttack(createRequest)
         currentAttackResultId = createResponse.attack_result_id
         currentConversationId = createResponse.conversation_id
         currentActiveConversationId = currentConversationId
@@ -486,15 +490,15 @@ export default function ChatWindow({
 
       // Send message to target
       const converterIds = allConverterIds.length > 0 ? allConverterIds : undefined
-      const response = await attacksApi.addMessage(currentAttackResultId!, {
+      const addMessageRequest: AddMessageRequest = {
         role: 'user',
         pieces,
         send: true,
         target_registry_name: activeTarget.target_registry_name,
         target_conversation_id: effectiveConvId!,
-        labels: labels ?? undefined,
         converter_ids: converterIds,
-      })
+      }
+      const response = await attacksApi.addMessage(currentAttackResultId!, addMessageRequest)
       onAttackChange?.(response.attack)
 
       // Clear converter state after successful send
@@ -678,7 +682,7 @@ export default function ChatWindow({
     try {
       const createResponse = await attacksApi.createAttack({
         target_registry_name: activeTarget.target_registry_name,
-        labels: labels,
+        labels,
         source_conversation_id: activeConversationId,
         cutoff_index: messageIndex,
       })
@@ -788,7 +792,7 @@ export default function ChatWindow({
       // Let the backend clone the conversation with new labels
       const createResponse = await attacksApi.createAttack({
         target_registry_name: activeTarget.target_registry_name,
-        labels: labels,
+        labels,
         source_conversation_id: activeConversationId,
         cutoff_index: lastIndex,
       })

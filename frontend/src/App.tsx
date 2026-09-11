@@ -110,6 +110,7 @@ interface LoadedAttack {
   targetSource: 'persisted' | 'active-selection'
   mainConversationId: string | null
   labels: Record<string, string> | null
+  operator: string | null
   target: TargetInfo | null
   relatedConversationIds: string[]
   objective: string
@@ -323,6 +324,7 @@ function App() {
       status: 'loading',
       mainConversationId: null,
       labels: null,
+      operator: null,
       target: null,
       relatedConversationIds: [],
       objective: '',
@@ -341,6 +343,7 @@ function App() {
           targetSource: 'persisted',
           mainConversationId: attack.conversation_id,
           labels: attack.labels ?? {},
+          operator: attack.operator ?? null,
           target: attack.target ?? null,
           relatedConversationIds: attack.related_conversation_ids ?? [],
           objective: attack.objective ?? '',
@@ -364,6 +367,7 @@ function App() {
           status: isMissing ? 'not-found' : 'error',
           mainConversationId: null,
           labels: null,
+          operator: null,
           target: null,
           relatedConversationIds: [],
           objective: '',
@@ -457,6 +461,7 @@ function App() {
       mainConversationId: convId,
       // New attack uses the current user's labels, so it is never operator-locked.
       labels: null,
+      operator: null,
       target,
       relatedConversationIds: [],
       objective: objective ?? '',
@@ -534,7 +539,7 @@ function App() {
       labels={globalLabels}
       onLabelsChange={handleGlobalLabelsChange}
       onNavigate={handleNavigate}
-      attackLabels={readyAttack ? readyAttack.labels : null}
+      attackOperator={readyAttack ? readyAttack.operator : null}
       attackTarget={readyAttack ? readyAttack.target : null}
       targetResolutionStatus={targetResolutionStatus}
       onRetryTargetResolution={retryTargetResolution}

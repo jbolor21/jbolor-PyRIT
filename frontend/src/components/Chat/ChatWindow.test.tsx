@@ -837,6 +837,7 @@ describe("ChatWindow Integration", () => {
       expect(mockedAttacksApi.createAttack).toHaveBeenCalledWith({
         target_registry_name: "openai_chat_1",
         labels: { operator: 'testuser', operation: 'test_op' },
+        system_prompt: undefined,
       });
       expect(onConversationCreated).toHaveBeenCalledWith("ar-conv-1", "conv-1", undefined);
       expect(mockedAttacksApi.addMessage).toHaveBeenCalledWith("ar-conv-1", {
@@ -845,7 +846,6 @@ describe("ChatWindow Integration", () => {
         send: true,
         target_registry_name: "openai_chat_1",
         target_conversation_id: "conv-1",
-        labels: { operator: "testuser", operation: "test_op" },
       });
       expect(onAttackChange).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -2879,7 +2879,7 @@ describe("ChatWindow Integration", () => {
           conversationId="conv-locked"
           activeConversationId="conv-locked"
           labels={{ operator: "alice", operation: "test_op" }}
-          attackLabels={{ operator: "bob", operation: "test_op" }}
+          attackOperator="bob"
         />
       </TestWrapper>
     );
@@ -4011,7 +4011,7 @@ describe("ChatWindow Integration", () => {
     it("allows exporting a read-only historical conversation", async () => {
       const user = userEvent.setup();
       // Operator lock: the loaded attack belongs to a different operator.
-      await renderWithLoadedConversation({ attackLabels: { operator: "someone-else" } });
+      await renderWithLoadedConversation({ attackOperator: "someone-else" });
       const { clickSpy } = spyOnDownloadAnchor();
 
       const exportButton = screen.getByRole("button", { name: /export conversation/i });

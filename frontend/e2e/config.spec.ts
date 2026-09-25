@@ -399,7 +399,29 @@ test.describe("Create Target Dialog", () => {
   });
 
   test("should require an endpoint when identity authentication is selected", async ({ page }) => {
-    await page.route(/\/api\/targets/, async (route) => {
+    await page.route(/\/api\/targets\/types(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            {
+              target_type: "OpenAIChatTarget",
+              parameters: [
+                {
+                  name: "endpoint",
+                  type_name: "str",
+                  required: false,
+                  default: null,
+                },
+              ],
+              supported_auth_modes: ["api_key", "identity"],
+            },
+          ],
+        }),
+      });
+    });
+    await page.route(/\/api\/targets(?:\?.*)?$/, async (route) => {
       await route.fulfill(mockTargetsList([]));
     });
 

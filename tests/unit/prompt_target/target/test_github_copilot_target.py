@@ -635,7 +635,7 @@ async def test_reset_waits_for_in_progress_cleanup_release_async(
         await _cancel_tasks_async(cleanup_task, reset_task)
 
 
-@pytest.mark.usefixtures("patch_central_database")
+@pytest.mark.usefixtures("patch_central_database", "mock_copilot_startup_io")
 async def test_reset_waits_for_conversation_creation_async(
     *,
     client: NonCallableMagicMock,

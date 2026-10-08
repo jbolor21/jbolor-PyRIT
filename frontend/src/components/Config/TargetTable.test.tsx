@@ -140,7 +140,7 @@ describe('TargetTable', () => {
     expect(trigger).toHaveFocus()
     expect(onDeleteTarget).not.toHaveBeenCalled()
     await user.keyboard('{Enter}{End}{Enter}')
-    expect(onDeleteTarget).toHaveBeenCalledWith(manual)
+    expect(onDeleteTarget).toHaveBeenCalledWith(manual, trigger)
   })
 
   it.each([
@@ -163,8 +163,12 @@ describe('TargetTable', () => {
     await user.click(screen.getByRole('button', { name: `Actions for ${name}` }))
     const deletion = await screen.findByRole('menuitem', { name: `Delete ${name}` })
     expect(deletion).toHaveAttribute('aria-disabled', 'true')
-    expect(deletion).toHaveAttribute('aria-description', reason)
-    expect(screen.getByText(reason)).toBeVisible()
+    expect(deletion).toHaveAccessibleDescription(reason)
+    expect(within(deletion).getByText(reason)).toBeVisible()
+    await user.keyboard('{End}')
+    expect(deletion).toHaveFocus()
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(reason)
+    await user.keyboard('{Enter}')
     await user.click(deletion)
     expect(onDeleteTarget).not.toHaveBeenCalled()
   })

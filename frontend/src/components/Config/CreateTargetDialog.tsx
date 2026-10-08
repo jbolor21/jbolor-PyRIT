@@ -200,6 +200,7 @@ function isCompatible(a: TargetInstance, b: TargetInstance): boolean {
 
 export default function CreateTargetDialog({ open, onClose, onCreated, existingTargets }: CreateTargetDialogProps) {
   const styles = useCreateTargetDialogStyles()
+  const [targetName, setTargetName] = useState('')
   const [targetType, setTargetType] = useState('')
   const [endpoint, setEndpoint] = useState('')
   const [modelName, setModelName] = useState('')
@@ -213,7 +214,12 @@ export default function CreateTargetDialog({ open, onClose, onCreated, existingT
   const [repetitionPenalty, setRepetitionPenalty] = useState('1.0')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [fieldErrors, setFieldErrors] = useState<{ targetType?: string; endpoint?: string }>({})
+  const [fieldErrors, setFieldErrors] = useState<{ targetName?: string; targetType?: string; endpoint?: string }>({})
+  const normalizedName = targetName.trim()
+  const validName = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(normalizedName)
+  const duplicateName = existingTargets?.some((target: TargetInstance) => (
+    target.target_registry_name === normalizedName
+  )) ?? false
 
   // --- RoundRobin-specific state ---
   // The list of targets available for selection (fetched once when dialog opens).
@@ -375,6 +381,7 @@ export default function CreateTargetDialog({ open, onClose, onCreated, existingT
   }
 
   const resetForm = () => {
+    setTargetName('')
     setTargetType('')
     setEndpoint('')
     setModelName('')
@@ -397,6 +404,16 @@ export default function CreateTargetDialog({ open, onClose, onCreated, existingT
   }
 
   const handleSubmit = async () => {
+    if (submitting) return
+    if (!validName || duplicateName) {
+      setFieldErrors({
+        targetName: duplicateName
+          ? 'A target with this name already exists.'
+          : 'Enter a name of 1-64 letters, numbers, dots, underscores or hyphens, starting with a letter or number.',
+      })
+      return
+    }
+    setFieldErrors({})
     // For RoundRobinTarget, validation is different: we need ≥2 selected targets, not endpoint
     if (isRoundRobin) {
       if (selectedInnerTargets.length < 2) {
@@ -421,6 +438,7 @@ export default function CreateTargetDialog({ open, onClose, onCreated, existingT
 
       try {
         await targetsApi.createTarget({
+          name: normalizedName,
           type: 'RoundRobinTarget',
           params: {
             targets: selectedInnerTargets.map((t) => t.registryName),
@@ -472,6 +490,7 @@ export default function CreateTargetDialog({ open, onClose, onCreated, existingT
       }
 
       await targetsApi.createTarget({
+        name: normalizedName,
         type: targetType,
         params,
         ...(isIdentity ? { auth_mode: 'identity' as const } : {}),
@@ -517,6 +536,24 @@ export default function CreateTargetDialog({ open, onClose, onCreated, existingT
                   </MessageBarBody>
                 </MessageBar>
               )}
+
+              <Field
+                label="Target name"
+                required
+                hint="Choose a meaningful, unique name, such as team-image-model. Use 1-64 letters, numbers, dots, underscores or hyphens; start with a letter or number."
+                validationMessage={fieldErrors.targetName || (duplicateName ? 'A target with this name already exists.' : undefined)}
+                validationState={fieldErrors.targetName || duplicateName ? 'error' : 'none'}
+              >
+                <Input
+                  value={targetName}
+                  onChange={(_, data) => {
+                    setTargetName(data.value)
+                    setFieldErrors((current) => ({ ...current, targetName: undefined }))
+                  }}
+                  placeholder="team-image-model"
+                  maxLength={64}
+                />
+              </Field>
 
               <Field
                 className={styles.formField}
@@ -874,6 +911,8 @@ export default function CreateTargetDialog({ open, onClose, onCreated, existingT
               onClick={handleSubmit}
               disabled={
                 submitting ||
+                !validName ||
+                duplicateName ||
                 !targetType ||
                 (isRoundRobin
                   ? selectedInnerTargets.length < 2 ||

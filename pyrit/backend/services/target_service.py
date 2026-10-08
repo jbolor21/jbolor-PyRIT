@@ -89,13 +89,14 @@ class TargetService:
         origin = metadata.get("target_origin")
         if origin == "configuration":
             return (
-                "This target is loaded from configuration and would return after reinitialization. "
-                "Edit its .env settings or the target initializer in .pyrit_conf, then reinitialize."
+                "This target is generated automatically from your .env configuration and cannot be deleted here. "
+                "To remove it, update .env or the target initializers in .pyrit_conf, then reinitialize."
             )
         if origin == "auto_generated":
             return (
-                "PyRIT generates this target automatically from configured targets. "
-                "Edit the source targets in .env or the target initializer settings in .pyrit_conf, then reinitialize."
+                "This target is generated automatically from your configured targets and cannot be deleted here. "
+                "To remove it, update the source targets in .env or the target initializers in .pyrit_conf, "
+                "then reinitialize."
             )
         if metadata.get(cls._MANUAL_ENTRY_KEY) is True:
             return None

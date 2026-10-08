@@ -108,7 +108,7 @@ describe("TargetConfig", () => {
     await user.click(await screen.findByRole("button", { name: `Actions for ${sampleTargets[0].target_registry_name}` }));
     expect(await screen.findByRole("menuitem", { name: `Hide ${sampleTargets[0].target_registry_name}` })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /^Delete / })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByText(/edit .env \/ .pyrit_conf and reinitialize/)).toBeInTheDocument();
+    expect(within(screen.getByRole("menuitem", { name: /^Delete / })).getByText(/edit .env \/ .pyrit_conf and reinitialize/)).toBeInTheDocument();
     await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button", { name: `Actions for ${manual.target_registry_name}` }));
     expect(await screen.findByRole("menuitem", { name: `Delete ${manual.target_registry_name}` })).not.toHaveAttribute("aria-disabled", "true");
@@ -143,6 +143,7 @@ describe("TargetConfig", () => {
     expect(onTargetsLoaded).toHaveBeenLastCalledWith([sampleTargets[0]]);
     expect(defaultProps.onSetDefaultObjectiveTarget).not.toHaveBeenCalled();
     expect(defaultProps.onSetDefaultAdversarialTarget).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "New Target" })).toHaveFocus());
   });
 
   it("should leave the registry unchanged when deletion is cancelled", async () => {
@@ -156,6 +157,47 @@ describe("TargetConfig", () => {
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
     expect(mockedTargetsApi.deleteTarget).not.toHaveBeenCalled();
     expect(await screen.findByRole("button", { name: `Actions for ${manual.target_registry_name}` })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: `Actions for ${manual.target_registry_name}` })).toHaveFocus());
+  });
+
+  it.each([204, 404])("should restore the empty state and focus after deleting the last target (%s)", async (status: number) => {
+    const user = userEvent.setup();
+    const manual = { ...sampleTargets[0], can_delete: true };
+    mockedTargetsApi.listTargets.mockResolvedValueOnce({
+      items: [manual], pagination: { limit: 200, has_more: false },
+    }).mockResolvedValue({ items: [], pagination: { limit: 200, has_more: false } });
+    if (status === 404) {
+      mockedTargetsApi.deleteTarget.mockRejectedValueOnce({
+        isAxiosError: true, response: { status: 404, data: { detail: "Target not found" } },
+      });
+    } else {
+      mockedTargetsApi.deleteTarget.mockResolvedValueOnce(undefined);
+    }
+    render(<TestWrapper><TargetConfig {...defaultProps} /></TestWrapper>);
+    const trigger = await screen.findByRole("button", { name: `Actions for ${manual.target_registry_name}` });
+    trigger.focus();
+    await user.keyboard("{Enter}{End}{Enter}");
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(new RegExp(manual.target_registry_name))).toBeInTheDocument();
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus());
+    await user.tab();
+    await user.keyboard("{Enter}");
+    expect(await screen.findByText("No Targets Configured")).toBeInTheDocument();
+    expect(screen.queryByText("Target not found")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "New Target" })).toHaveFocus());
+  });
+
+  it("should use shared registry updates when another client removes a target", async () => {
+    mockedTargetsApi.listTargets.mockResolvedValue({
+      items: sampleTargets, pagination: { limit: 200, has_more: false },
+    });
+    const { rerender } = render(
+      <TestWrapper><TargetConfig {...defaultProps} registeredTargets={sampleTargets} /></TestWrapper>
+    );
+    await screen.findByRole("table");
+    rerender(<TestWrapper><TargetConfig {...defaultProps} registeredTargets={[]} /></TestWrapper>);
+    expect(screen.getByText("No Targets Configured")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("should show the in-use error and retain the target", async () => {

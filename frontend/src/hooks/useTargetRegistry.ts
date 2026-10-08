@@ -5,6 +5,8 @@ import { toApiError } from '@/services/errors'
 import { listRegisteredTargets } from '@/services/targetRegistry'
 import type { TargetInstance } from '@/types'
 
+const REGISTRY_REFRESH_INTERVAL_MS = 10_000
+
 export function useTargetRegistry() {
   const { generation, ready } = useRuntime()
   const [targets, setTargets] = useState<TargetInstance[]>([])
@@ -40,6 +42,22 @@ export function useTargetRegistry() {
     setError(null)
     setRevision((current: number) => current + 1)
   }, [])
+
+  useEffect(() => {
+    if (!ready) return
+    const refreshInBackground = (): void => {
+      if (document.visibilityState === 'hidden' || pendingUpdates.current !== null) return
+      setRevision((current: number) => current + 1)
+    }
+    const timer = window.setInterval(refreshInBackground, REGISTRY_REFRESH_INTERVAL_MS)
+    window.addEventListener('focus', refreshInBackground)
+    document.addEventListener('visibilitychange', refreshInBackground)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refreshInBackground)
+      document.removeEventListener('visibilitychange', refreshInBackground)
+    }
+  }, [ready])
 
   const rememberTarget = useCallback((target: TargetInstance): void => {
     pendingUpdates.current?.set(target.target_registry_name, target)

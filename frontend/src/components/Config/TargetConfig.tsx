@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   tokens,
   Text,
@@ -13,6 +13,7 @@ import {
   DialogActions,
   MessageBar,
   MessageBarBody,
+  useRestoreFocusTarget,
 } from '@fluentui/react-components'
 import { AddRegular, ArrowSyncRegular } from '@fluentui/react-icons'
 import { useRuntime } from '@/hooks/useRuntime'
@@ -30,6 +31,7 @@ interface TargetConfigProps {
   onSetDefaultObjectiveTarget: (target: TargetInstance | null) => void
   onSetDefaultAdversarialTarget: (target: TargetInstance | null) => void
   onTargetsLoaded?: (targets: TargetInstance[]) => void
+  registeredTargets?: TargetInstance[]
 }
 
 export default function TargetConfig({
@@ -38,10 +40,16 @@ export default function TargetConfig({
   onSetDefaultObjectiveTarget,
   onSetDefaultAdversarialTarget,
   onTargetsLoaded,
+  registeredTargets,
 }: TargetConfigProps) {
   const { generation, ready } = useRuntime()
   const styles = useTargetConfigStyles()
-  const [targets, setTargets] = useState<TargetInstance[]>([])
+  const [loadedTargets, setTargets] = useState<TargetInstance[]>([])
+  const targets = registeredTargets ?? loadedTargets
+  const newTargetRef = useRef<HTMLButtonElement>(null)
+  const restoreFocusTarget = useRestoreFocusTarget()
+  const deleteTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const [focusRestore, setFocusRestore] = useState<{ trigger: HTMLButtonElement | null } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -51,6 +59,13 @@ export default function TargetConfig({
   // Counter used to re-trigger the fetch effect from event handlers (Refresh,
   // dialog close) without invoking setState synchronously in the effect body.
   const [refetchCount, setRefetchCount] = useState(0)
+
+  useEffect(() => {
+    if (!focusRestore || deleteTarget) return
+    const trigger = focusRestore.trigger
+    const target = trigger?.isConnected ? trigger : newTargetRef.current
+    target?.focus()
+  }, [focusRestore, deleteTarget])
 
   // Retry fetching targets a few times with backoff. The Vite dev proxy
   // returns 502 while the backend is still starting, so a single failed
@@ -97,18 +112,29 @@ export default function TargetConfig({
     fetchTargets()
   }, [fetchTargets])
 
+  const closeDeleteDialog = (): void => {
+    setDeleteTarget(null)
+    setFocusRestore({ trigger: deleteTriggerRef.current })
+  }
+
   const handleDeleteTarget = async (): Promise<void> => {
     if (!deleteTarget || deleting || !ready) return
     setDeleting(true)
     setDeleteError(null)
     try {
-      await targetsApi.deleteTarget(deleteTarget.target_registry_name)
+      try {
+        await targetsApi.deleteTarget(deleteTarget.target_registry_name)
+      } catch (cause: unknown) {
+        if (toApiError(cause).status !== 404) throw cause
+        // Another client already removed it; reconcile with the shared registry.
+      }
       const remaining = targets.filter((target: TargetInstance) => (
         target.target_registry_name !== deleteTarget.target_registry_name
       ))
       setTargets(remaining)
       onTargetsLoaded?.(remaining)
       setDeleteTarget(null)
+      setFocusRestore({ trigger: null })
       fetchTargets()
     } catch (cause: unknown) {
       setDeleteError(toApiError(cause).detail)
@@ -137,6 +163,8 @@ export default function TargetConfig({
             Refresh
           </Button>
           <Button
+            {...restoreFocusTarget}
+            ref={newTargetRef}
             className={styles.headerAction}
             appearance="primary"
             icon={<AddRegular />}
@@ -195,7 +223,8 @@ export default function TargetConfig({
           defaultAdversarialTarget={defaultAdversarialTarget}
           onSetDefaultObjectiveTarget={onSetDefaultObjectiveTarget}
           onSetDefaultAdversarialTarget={onSetDefaultAdversarialTarget}
-          onDeleteTarget={(target: TargetInstance) => {
+          onDeleteTarget={(target: TargetInstance, trigger: HTMLButtonElement | null) => {
+            deleteTriggerRef.current = trigger
             setDeleteError(null)
             setDeleteTarget(target)
           }}
@@ -211,7 +240,7 @@ export default function TargetConfig({
       <Dialog
         open={deleteTarget !== null}
         onOpenChange={(_, data) => {
-          if (!data.open && !deleting) setDeleteTarget(null)
+          if (!data.open && !deleting) closeDeleteDialog()
         }}
       >
         <DialogSurface>
@@ -232,7 +261,7 @@ export default function TargetConfig({
               )}
             </DialogContent>
             <DialogActions>
-              <Button className={styles.touchTarget} disabled={deleting} onClick={() => setDeleteTarget(null)}>
+              <Button className={styles.touchTarget} disabled={deleting} onClick={closeDeleteDialog}>
                 Cancel
               </Button>
               <Button

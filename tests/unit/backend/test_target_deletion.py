@@ -71,6 +71,27 @@ async def test_manual_origin_is_returned_by_create_get_and_list_async(service: T
     assert not await service.delete_target_async(target_registry_name="manual")
 
 
+async def test_duplicate_name_preserves_original_target_async(service: TargetService) -> None:
+    created = await _create_async(service=service, name="team-image-model")
+    with pytest.raises(ValueError, match="already"):
+        await _create_async(service=service, name="team-image-model")
+    loaded = await service.get_target_async(target_registry_name="team-image-model")
+    assert loaded == created
+    assert loaded.can_delete
+
+
+@pytest.mark.parametrize("name", ["", "   ", "bad/name", "bad name", "-bad", "x" * 65])
+def test_invalid_target_names_are_rejected_by_api(
+    *, service: TargetService, compatibility_headers: dict[str, str], name: str
+) -> None:
+    with patch("pyrit.backend.routes.targets.get_target_service", return_value=service):
+        response = TestClient(app, headers=compatibility_headers).post(
+            "/api/targets", json={"name": name, "type": "OpenAIChatTarget", "params": {}}
+        )
+    assert response.status_code == 422
+    assert len(service._registry.instances) == 0
+
+
 @pytest.mark.parametrize("name", ["initializer_target", "compat_875589e4c92f4bb4962d4e4ed2100f7a"])
 @pytest.mark.parametrize("metadata", [{}, {"created_by_target_api": "true"}, {"created_by_target_api": False}])
 async def test_unknown_or_initializer_origin_is_protected_async(
@@ -139,11 +160,11 @@ async def test_initializer_targets_have_source_specific_protection_async(service
 
     targets = {target.target_registry_name: target for target in (await service.list_targets_async()).items}
     for name, explanation in (
-        ("openai_chat", "loaded from configuration"),
-        ("platform_openai_chat", "loaded from configuration"),
-        ("adversarial_chat_primary", "loaded from configuration"),
-        ("OpenAIChatTarget_gpt-4o_rr", "generates this target automatically"),
-        ("adversarial_chat", "generates this target automatically"),
+        ("openai_chat", "generated automatically from your .env configuration"),
+        ("platform_openai_chat", "generated automatically from your .env configuration"),
+        ("adversarial_chat_primary", "generated automatically from your .env configuration"),
+        ("OpenAIChatTarget_gpt-4o_rr", "generated automatically from your configured targets"),
+        ("adversarial_chat", "generated automatically from your configured targets"),
     ):
         target = targets[name]
         assert not target.can_delete

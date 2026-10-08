@@ -16,6 +16,37 @@ const second = makeTarget({ target_registry_name: 'second' })
 describe('useTargetRegistry', () => {
   beforeEach(() => jest.resetAllMocks())
 
+  it('refreshes on window focus after another client deletes a target', async () => {
+    listTargets.mockResolvedValueOnce({
+      items: [first], pagination: { limit: 200, has_more: false },
+    }).mockResolvedValue({ items: [], pagination: { limit: 200, has_more: false } })
+    const { result } = renderHook(useTargetRegistry)
+    await waitFor(() => expect(result.current.targets).toEqual([first]))
+    act(() => window.dispatchEvent(new Event('focus')))
+    await waitFor(() => expect(result.current.targets).toEqual([]))
+    expect(result.current.error).toBeNull()
+  })
+
+  it('polls visible clients without resetting loading and stops on unmount', async () => {
+    jest.useFakeTimers()
+    try {
+      listTargets.mockResolvedValueOnce({
+        items: [first], pagination: { limit: 200, has_more: false },
+      }).mockResolvedValue({ items: [], pagination: { limit: 200, has_more: false } })
+      const { result, unmount } = renderHook(useTargetRegistry)
+      await act(async () => {})
+      expect(result.current.targets).toEqual([first])
+      await act(async () => { jest.advanceTimersByTime(10_000) })
+      expect(result.current.targets).toEqual([])
+      expect(result.current.loading).toBe(false)
+      unmount()
+      await act(async () => { jest.advanceTimersByTime(10_000) })
+      expect(listTargets).toHaveBeenCalledTimes(2)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
   it('loads every page and removes duplicate registry names', async () => {
     listTargets.mockResolvedValueOnce({
       items: [first], pagination: { limit: 200, has_more: true, next_cursor: 'next' },

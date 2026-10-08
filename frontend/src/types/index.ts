@@ -288,6 +288,7 @@ export interface TargetListResponse {
 }
 
 export interface CreateTargetRequest {
+  name?: string
   type: string
   params: Record<string, unknown>
   auth_mode?: 'api_key' | 'identity'

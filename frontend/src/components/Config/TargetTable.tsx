@@ -1,4 +1,4 @@
-import React, { useState, useMemo, forwardRef } from 'react'
+import React, { useState, useMemo, useRef, forwardRef } from 'react'
 import {
   Table,
   TableHeader,
@@ -19,6 +19,7 @@ import {
   MenuItem,
   MenuDivider,
   mergeClasses,
+  useRestoreFocusTarget,
 } from '@fluentui/react-components'
 import {
   CheckmarkCircleFilled,
@@ -72,7 +73,7 @@ interface TargetTableProps {
   defaultAdversarialTarget: TargetInstance | null
   onSetDefaultObjectiveTarget: (target: TargetInstance | null) => void
   onSetDefaultAdversarialTarget: (target: TargetInstance | null) => void
-  onDeleteTarget?: (target: TargetInstance) => void
+  onDeleteTarget?: (target: TargetInstance, trigger: HTMLButtonElement | null) => void
 }
 
 /** Format target_specific_params into a short human-readable string. */
@@ -259,6 +260,8 @@ export default function TargetTable({
   onDeleteTarget,
 }: TargetTableProps) {
   const styles = useTargetTableStyles()
+  const restoreFocusTarget = useRestoreFocusTarget()
+  const actionButtons = useRef(new Map<string, HTMLButtonElement>())
   const { preferences, updatePreferences } = useUserPreferences()
   const hiddenTargetRegistryNames = useMemo(
     () => new Set(preferences.hiddenTargetRegistryNames),
@@ -446,6 +449,11 @@ export default function TargetTable({
                     <Menu>
                       <MenuTrigger disableButtonEnhancement>
                         <Button
+                          {...restoreFocusTarget}
+                          ref={(button: HTMLButtonElement | null) => {
+                            if (button) actionButtons.current.set(target.target_registry_name, button)
+                            else actionButtons.current.delete(target.target_registry_name)
+                          }}
                           className={styles.rowAction}
                           appearance="subtle"
                           size="small"
@@ -466,21 +474,27 @@ export default function TargetTable({
                             {hidden ? 'Show target' : 'Hide target'}
                           </MenuItem>
                           <MenuDivider />
-                          <MenuItem
-                            className={mergeClasses(styles.menuItem, canDelete && styles.deleteMenuItem)}
-                            icon={<DeleteRegular />}
-                            disabled={!canDelete}
-                            onClick={() => onDeleteTarget?.(target)}
-                            aria-label={`Delete ${target.target_registry_name}`}
-                            aria-description={deletionBlockedReason ?? undefined}
+                          <Tooltip
+                            content={deletionBlockedReason ?? 'Delete this user-created target'}
+                            relationship="description"
                           >
-                            Delete target
-                            {deletionBlockedReason && (
-                              <Text className={styles.deletionExplanation} size={200}>
-                                {deletionBlockedReason}
-                              </Text>
-                            )}
-                          </MenuItem>
+                            <MenuItem
+                              className={mergeClasses(styles.menuItem, canDelete && styles.deleteMenuItem)}
+                              icon={<DeleteRegular />}
+                              disabled={!canDelete}
+                              onClick={() => onDeleteTarget?.(
+                                target, actionButtons.current.get(target.target_registry_name) ?? null,
+                              )}
+                              aria-label={`Delete ${target.target_registry_name}`}
+                            >
+                              Delete target
+                              {deletionBlockedReason && (
+                                <Text className={styles.deletionExplanation} size={200}>
+                                  {deletionBlockedReason}
+                                </Text>
+                              )}
+                            </MenuItem>
+                          </Tooltip>
                         </MenuList>
                       </MenuPopover>
                     </Menu>

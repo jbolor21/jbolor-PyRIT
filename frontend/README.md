@@ -32,6 +32,29 @@ a new attack, the draft is kept so you can retry after loading finishes. Copies
 and drafts saved to an existing attack remain available during defaults reloads
 and keep that attack's attribution.
 
+## Deleting manually added targets
+
+Each Target Registry row has a three-dot **Actions** menu containing **Hide target**
+(or **Show target**) and a separated **Delete target** option. Deletion is enabled
+only for targets added through the GUI/API in the current runtime, including
+manually created round-robin targets. Configuration-sourced targets, automatically
+generated round-robin groups, and the generated canonical `adversarial_chat`
+registration show a disabled Delete option explaining their ownership and directing
+users to edit `.env` / `.pyrit_conf` and reinitialize. Entries without explicit
+manual-origin metadata are also protected.
+
+Deletion requires confirmation that removal is immediate, shared by all users,
+and cannot be undone. It removes the registration from the backend itself, rather
+than hiding it in one browser; it does not delete deployments, credentials, saved
+conversations, or results.
+
+The backend rejects deletion while that target is reserved by a manual send,
+scenario preparation, queued/running scenario, or configured estimate. Unrelated
+targets remain deletable. Registered targets, converters, scorers, and attack
+techniques that reference the target also block deletion. Finish/cancel the work
+or remove the dependency before retrying. A deleted selection becomes unavailable
+rather than silently selecting another model.
+
 ## Development
 
 ```bash

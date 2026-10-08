@@ -5,9 +5,18 @@ import {
   Button,
   Link,
   Spinner,
+  Dialog,
+  DialogSurface,
+  DialogBody,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  MessageBar,
+  MessageBarBody,
 } from '@fluentui/react-components'
 import { AddRegular, ArrowSyncRegular } from '@fluentui/react-icons'
 import { useRuntime } from '@/hooks/useRuntime'
+import { targetsApi } from '@/services/api'
 import { toApiError } from '@/services/errors'
 import { listRegisteredTargets } from '@/services/targetRegistry'
 import type { TargetInstance } from '@/types'
@@ -36,6 +45,9 @@ export default function TargetConfig({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<TargetInstance | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   // Counter used to re-trigger the fetch effect from event handlers (Refresh,
   // dialog close) without invoking setState synchronously in the effect body.
   const [refetchCount, setRefetchCount] = useState(0)
@@ -84,6 +96,26 @@ export default function TargetConfig({
     setDialogOpen(false)
     fetchTargets()
   }, [fetchTargets])
+
+  const handleDeleteTarget = async (): Promise<void> => {
+    if (!deleteTarget || deleting || !ready) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await targetsApi.deleteTarget(deleteTarget.target_registry_name)
+      const remaining = targets.filter((target: TargetInstance) => (
+        target.target_registry_name !== deleteTarget.target_registry_name
+      ))
+      setTargets(remaining)
+      onTargetsLoaded?.(remaining)
+      setDeleteTarget(null)
+      fetchTargets()
+    } catch (cause: unknown) {
+      setDeleteError(toApiError(cause).detail)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <div className={styles.root} data-testid="target-config">
@@ -163,6 +195,10 @@ export default function TargetConfig({
           defaultAdversarialTarget={defaultAdversarialTarget}
           onSetDefaultObjectiveTarget={onSetDefaultObjectiveTarget}
           onSetDefaultAdversarialTarget={onSetDefaultAdversarialTarget}
+          onDeleteTarget={(target: TargetInstance) => {
+            setDeleteError(null)
+            setDeleteTarget(target)
+          }}
         />
       )}
 
@@ -172,6 +208,45 @@ export default function TargetConfig({
         onCreated={handleTargetCreated}
         existingTargets={targets}
       />
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(_, data) => {
+          if (!data.open && !deleting) setDeleteTarget(null)
+        }}
+      >
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Delete target?</DialogTitle>
+            <DialogContent>
+              <Text>
+                Delete "{deleteTarget?.target_registry_name}"?
+                This immediately removes the target from the shared registry for all users and cannot be undone.
+                Saved conversations and results are kept,
+                but using this target again requires adding it again.
+                Targets in use cannot be deleted.
+              </Text>
+              {deleteError && (
+                <MessageBar intent="error">
+                  <MessageBarBody>{deleteError}</MessageBarBody>
+                </MessageBar>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button className={styles.touchTarget} disabled={deleting} onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                className={styles.touchTarget}
+                appearance="primary"
+                disabled={deleting || !ready}
+                onClick={() => { void handleDeleteTarget() }}
+              >
+                {deleting ? 'Deleting...' : 'Delete target'}
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </div>
   )
 }

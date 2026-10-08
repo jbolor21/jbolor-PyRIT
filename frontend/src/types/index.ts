@@ -270,6 +270,9 @@ export interface TargetIdentifier {
 
 export interface TargetInstance {
   target_registry_name: string
+  /** Only manually created entries are eligible; the server also checks active usage. */
+  can_delete?: boolean
+  deletion_blocked_reason?: string | null
   /** Typed identity: class name, endpoint, model name, generation params, content hash. */
   identifier: TargetIdentifier
   capabilities?: TargetCapabilities | null

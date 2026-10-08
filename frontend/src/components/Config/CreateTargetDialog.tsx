@@ -64,6 +64,9 @@ const TARGET_FORM_SHAPES: Record<string, TargetFormShape> = {
 
 const RENDERABLE_TARGET_TYPES = Object.keys(TARGET_FORM_SHAPES)
 
+const TARGET_NAME_FORMAT_ERROR =
+  'Use 1-64 letters, numbers, dots (.), underscores (_) or hyphens (-), starting with a letter or number. Spaces and other characters are not allowed.'
+
 const TARGET_DISPLAY_NAMES: Record<string, string> = {
   AzureMLChatTarget: 'Azure Machine Learning chat',
   OpenAIChatTarget: 'OpenAI chat',
@@ -220,6 +223,9 @@ export default function CreateTargetDialog({ open, onClose, onCreated, existingT
   const duplicateName = existingTargets?.some((target: TargetInstance) => (
     target.target_registry_name === normalizedName
   )) ?? false
+  const targetNameError = fieldErrors.targetName
+    || (targetName.length > 0 && !validName ? TARGET_NAME_FORMAT_ERROR : undefined)
+    || (duplicateName ? 'A target with this name already exists.' : undefined)
 
   // --- RoundRobin-specific state ---
   // The list of targets available for selection (fetched once when dialog opens).
@@ -409,7 +415,7 @@ export default function CreateTargetDialog({ open, onClose, onCreated, existingT
       setFieldErrors({
         targetName: duplicateName
           ? 'A target with this name already exists.'
-          : 'Enter a name of 1-64 letters, numbers, dots, underscores or hyphens, starting with a letter or number.',
+          : TARGET_NAME_FORMAT_ERROR,
       })
       return
     }
@@ -541,8 +547,8 @@ export default function CreateTargetDialog({ open, onClose, onCreated, existingT
                 label="Target name"
                 required
                 hint="Choose a meaningful, unique name, such as team-image-model. Use 1-64 letters, numbers, dots, underscores or hyphens; start with a letter or number."
-                validationMessage={fieldErrors.targetName || (duplicateName ? 'A target with this name already exists.' : undefined)}
-                validationState={fieldErrors.targetName || duplicateName ? 'error' : 'none'}
+                validationMessage={targetNameError}
+                validationState={targetNameError ? 'error' : 'none'}
               >
                 <Input
                   value={targetName}

@@ -61,9 +61,10 @@ techniques that reference the target also block deletion. Finish/cancel the work
 or remove the dependency before retrying. A deleted selection becomes unavailable
 rather than silently selecting another model.
 
-Open clients refresh the shared registry every 10 seconds while visible and when
-regaining focus. If a saved objective or adversarial default disappears, the app
-prompts its user to choose a new default without silently switching models.
+The target list refreshes when users open the registry or click **Refresh**,
+not on a timer or when the window gains focus. If that refresh finds a saved
+objective or adversarial default missing, the app prompts its user to choose
+a new default without silently switching models.
 Deleting an already-removed target refreshes the list without a not-found error.
 Deleting the last target restores **No Targets Configured**; after removal,
 keyboard focus returns to **New Target**, or to the row's Actions control after

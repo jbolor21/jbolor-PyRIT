@@ -270,7 +270,7 @@ describe("CreateTargetDialog", () => {
     expect(screen.getByText("Cancel")).toBeInTheDocument();
   });
 
-  it.each(["", "   ", "bad/name", "bad name"])("should require a valid user-supplied target name (%j)", async (name: string) => {
+  it.each(["", "   ", "bad/name", "bad name", "bad@name", "-bad"])("should require a valid user-supplied target name (%j)", async (name: string) => {
     const user = userEvent.setup();
     render(<TestWrapper><CreateTargetDialog {...defaultProps} /></TestWrapper>);
     await selectTargetType("OpenAIImageTarget");
@@ -282,6 +282,19 @@ describe("CreateTargetDialog", () => {
     }
     expect(screen.getByRole("button", { name: "Create Target" })).toBeDisabled();
     expect(mockedTargetsApi.createTarget).not.toHaveBeenCalled();
+    const input = screen.getByRole("textbox", { name: "Target name" });
+    if (name) {
+      expect(screen.getByText(/Spaces and other characters are not allowed/)).toBeVisible();
+      expect(input).toHaveAttribute("aria-invalid", "true");
+      expect(input).toHaveAccessibleDescription(/Spaces and other characters are not allowed/);
+    } else {
+      expect(screen.queryByText(/Spaces and other characters are not allowed/)).not.toBeInTheDocument();
+    }
+    await user.clear(input);
+    await user.type(input, "team.image_model-1");
+    expect(screen.queryByText(/Spaces and other characters are not allowed/)).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: "Create Target" })).toBeEnabled();
   });
 
   it("should submit a trimmed human-readable name and reset it after creation", async () => {

@@ -149,7 +149,8 @@ test.describe("Target deletion against an isolated backend @seeded", () => {
       await expect(page.getByRole("button", { name: "New Target", exact: true })).toBeFocused();
       expect((await api.get("/api/targets/team-image-model")).status()).toBe(404);
       await observer.bringToFront();
-      await expect(observer.getByText("No Targets Configured", { exact: true })).toBeVisible({ timeout: 15_000 });
+      await observer.getByRole("button", { name: "Refresh", exact: true }).click();
+      await expect(observer.getByText("No Targets Configured", { exact: true })).toBeVisible();
       await observer.reload();
       await expect(observer.getByText("No Targets Configured", { exact: true })).toBeVisible();
     } finally {
@@ -157,7 +158,7 @@ test.describe("Target deletion against an isolated backend @seeded", () => {
     }
   });
 
-  test("prompts another user's client to replace deleted objective and adversarial defaults", async ({ page, api }) => {
+  test("prompts for new defaults when another user reopens the registry after deletion", async ({ page, api }) => {
     await createTarget(api, "shared-default");
     await createTarget(api, "replacement");
     await page.goto("/registry/targets");
@@ -165,6 +166,8 @@ test.describe("Target deletion against an isolated backend @seeded", () => {
     await page.getByLabel("Default adversarial target", { exact: true }).selectOption("shared-default");
     // The independent API client represents the user deleting a shared target.
     expect((await api.delete("/api/targets/shared-default")).status()).toBe(204);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Registry", exact: true }).click();
     for (const role of ["objective", "adversarial"]) {
       await expect(page.getByText(`The saved default ${role} target is unavailable or has changed. Select a new default in the registry.`))
         .toBeVisible({ timeout: 15_000 });

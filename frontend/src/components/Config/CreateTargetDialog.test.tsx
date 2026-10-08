@@ -313,6 +313,14 @@ describe("CreateTargetDialog", () => {
     expect(screen.getByRole("textbox", { name: "Target name" })).toHaveValue("");
   });
 
+  it("should explain the provider model or deployment name", async () => {
+    render(<TestWrapper><CreateTargetDialog {...defaultProps} /></TestWrapper>);
+    await flushTargetTypesFetch();
+    const hint = "The model ID expected by your provider, e.g. gpt-image-1.";
+    expect(screen.getByText(hint)).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Model / Deployment Name" })).toHaveAccessibleDescription(hint);
+  });
+
   it("should explain duplicate names before submission", async () => {
     const user = userEvent.setup();
     render(<TestWrapper><CreateTargetDialog {...defaultProps} existingTargets={[

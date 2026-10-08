@@ -780,7 +780,10 @@ export default function CreateTargetDialog({ open, onClose, onCreated, existingT
                 />
               </Field>
 
-              <Field label="Model / Deployment Name">
+              <Field
+                label="Model / Deployment Name"
+                hint="The model ID expected by your provider, e.g. gpt-image-1."
+              >
                 <Input
                   placeholder={isAzureML ? 'e.g. Llama-3.2-3B-Instruct' : 'e.g. gpt-4o, my-deployment'}
                   value={modelName}

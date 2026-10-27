@@ -16,8 +16,10 @@ from urllib.parse import urlencode
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from pyrit.backend.mappers import request_piece_to_pyrit_message_piece
 from pyrit.backend.mappers.attack_mappers import pyrit_messages_to_dto_async
 from pyrit.backend.models.attacks import (
     AddMessageRequest,
@@ -53,6 +55,7 @@ from pyrit.models import (
     AtomicAttackIdentifier,
     AttackIdentifier,
     AttackResult,
+    ChatMessageRole,
     ComponentIdentifier,
     Conversation,
     ConversationReference,
@@ -1322,6 +1325,123 @@ class TestAddMessageGuards:
         )
         with pytest.raises(ValueError, match="Target mismatch"):
             message_send_service._validate_target_match(attack_identifier=attack_identifier, target=request_target)
+
+
+@pytest.mark.usefixtures("patch_central_database")
+class TestStoreMessageOnly:
+    @pytest.mark.parametrize("role", ["user", "assistant", "tool"])
+    async def test_store_message_only_batches_pieces_in_order_async(
+        self,
+        *,
+        sqlite_instance: SQLiteMemory,
+        real_send_context: tuple[MessageSendService, AttackResult, MockPromptTarget, Base64Converter],
+        role: ChatMessageRole,
+    ) -> None:
+        service, _, target, converter = real_send_context
+        conversation_id = str(uuid.uuid4())
+        first = converter.get_identifier()
+        second = Base64Converter(encoding_func="b32encode").get_identifier()
+        request = AddMessageRequest(
+            target_conversation_id=conversation_id,
+            role=role,
+            send=False,
+            pieces=[
+                MessagePieceRequest(original_value="first", converted_value="converted first"),
+                MessagePieceRequest(original_value="second"),
+                MessagePieceRequest(original_value="third"),
+            ],
+        )
+        with (
+            patch.object(
+                sqlite_instance,
+                "add_conversation_to_memory_async",
+                wraps=sqlite_instance.add_conversation_to_memory_async,
+            ) as register,
+            patch.object(
+                sqlite_instance,
+                "add_message_pieces_to_memory_async",
+                wraps=sqlite_instance.add_message_pieces_to_memory_async,
+            ) as batch,
+        ):
+            await service._store_message_only_async(
+                conversation_id=conversation_id,
+                request=request,
+                sequence=7,
+                target_identifier=target.get_identifier(),
+                applied_converter_identifiers={0: [first, second, first], 2: [second]},
+            )
+
+        register.assert_awaited_once()
+        batch.assert_awaited_once()
+        submitted = batch.call_args.kwargs["message_pieces"]
+        persisted = await sqlite_instance.get_message_pieces_async(conversation_id=conversation_id)
+        assert [piece.id for piece in persisted] == [piece.id for piece in submitted]
+        assert [piece.original_value for piece in persisted] == ["first", "second", "third"]
+        assert [piece.converted_value for piece in persisted] == ["converted first", "second", "third"]
+        assert [piece.sequence for piece in persisted] == [7, 7, 7]
+        assert [piece.role for piece in persisted] == [
+            {"assistant": "simulated_assistant", "tool": "simulated_tool"}.get(role, role)
+        ] * 3
+        assert all(piece.prompt_metadata[MessagePiece.PREPENDED_HISTORY_METADATA_KEY] for piece in persisted)
+        assert [piece.converter_identifiers for piece in persisted] == [[first, second, first], [], [second]]
+        conversation = await sqlite_instance.get_conversation_metadata_async(conversation_id=conversation_id)
+        assert conversation is not None
+        assert conversation.target_identifier == target.get_identifier()
+
+    @pytest.mark.parametrize("failure", ["construction", "batch"])
+    async def test_store_message_only_failure_does_not_save_partial_message_async(
+        self,
+        *,
+        sqlite_instance: SQLiteMemory,
+        real_send_context: tuple[MessageSendService, AttackResult, MockPromptTarget, Base64Converter],
+        failure: str,
+    ) -> None:
+        service, _, target, converter = real_send_context
+        conversation_id = str(uuid.uuid4())
+        request = AddMessageRequest(
+            target_conversation_id=conversation_id,
+            send=False,
+            pieces=[MessagePieceRequest(original_value=value) for value in ["first", "second"]],
+        )
+        pieces = [
+            request_piece_to_pyrit_message_piece(
+                piece=piece, role=request.role, conversation_id=conversation_id, sequence=3
+            )
+            for piece in request.pieces
+        ]
+        pieces[1].id = pieces[0].id
+        with (
+            patch(
+                "pyrit.backend.services.message_send_service.request_piece_to_pyrit_message_piece",
+                side_effect=pieces if failure == "batch" else [pieces[0], ValueError("invalid second piece")],
+            ),
+            patch.object(
+                sqlite_instance,
+                "add_message_pieces_to_memory_async",
+                wraps=sqlite_instance.add_message_pieces_to_memory_async,
+            ) as batch,
+            pytest.raises(
+                IntegrityError if failure == "batch" else ValueError,
+                match="UNIQUE constraint failed" if failure == "batch" else "invalid second piece",
+            ),
+        ):
+            await service._store_message_only_async(
+                conversation_id=conversation_id,
+                request=request,
+                sequence=3,
+                target_identifier=target.get_identifier(),
+                applied_converter_identifiers={0: [converter.get_identifier()]},
+            )
+
+        assert await sqlite_instance.get_message_pieces_async(conversation_id=conversation_id) == []
+        conversation = await sqlite_instance.get_conversation_metadata_async(conversation_id=conversation_id)
+        if failure == "batch":
+            batch.assert_awaited_once()
+            assert conversation is not None
+            assert conversation.target_identifier == target.get_identifier()
+        else:
+            batch.assert_not_awaited()
+            assert conversation is None
 
 
 class TestResolveVideoRemixMetadata:

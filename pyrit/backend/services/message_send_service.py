@@ -1287,9 +1287,8 @@ class MessageSendService:
         target_identifier: ComponentIdentifier | None,
         applied_converter_identifiers: dict[int, list[ConverterIdentifier]],
     ) -> None:
-        await self._memory.add_conversation_to_memory_async(
-            conversation=Conversation(conversation_id=conversation_id, target_identifier=target_identifier)
-        )
+        """Persist all pieces atomically; conversation registration is a separate write."""
+        pieces: list[MessagePiece] = []
         for index, p in enumerate(request.pieces):
             piece = request_piece_to_pyrit_message_piece(
                 piece=p,
@@ -1299,7 +1298,11 @@ class MessageSendService:
             )
             piece.set_simulated_role()
             piece.converter_identifiers.extend(applied_converter_identifiers.get(index, []))
-            await self._memory.add_message_pieces_to_memory_async(message_pieces=[piece])
+            pieces.append(piece)
+        await self._memory.add_conversation_to_memory_async(
+            conversation=Conversation(conversation_id=conversation_id, target_identifier=target_identifier)
+        )
+        await self._memory.add_message_pieces_to_memory_async(message_pieces=pieces)
 
     @staticmethod
     async def _complete_memory_write_async(write: Callable[[], Coroutine[Any, Any, None]]) -> None:

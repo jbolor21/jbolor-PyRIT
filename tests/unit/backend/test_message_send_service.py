@@ -50,6 +50,7 @@ from pyrit.common.attack_result_scope import get_current_attack_result_id
 from pyrit.common.utils import to_sha256
 from pyrit.converter import Base64Converter, Converter, ConverterResult
 from pyrit.memory import CentralMemory, SQLiteMemory
+from pyrit.memory.memory_models import ConverterIdentifierEntry, PromptConverterIdentifierEntry
 from pyrit.message_normalizer import HistorySquashNormalizer
 from pyrit.models import (
     AtomicAttackIdentifier,
@@ -1434,6 +1435,8 @@ class TestStoreMessageOnly:
             )
 
         assert await sqlite_instance.get_message_pieces_async(conversation_id=conversation_id) == []
+        assert sqlite_instance._query_entries(PromptConverterIdentifierEntry) == []
+        assert sqlite_instance._query_entries(ConverterIdentifierEntry) == []
         conversation = await sqlite_instance.get_conversation_metadata_async(conversation_id=conversation_id)
         if failure == "batch":
             batch.assert_awaited_once()

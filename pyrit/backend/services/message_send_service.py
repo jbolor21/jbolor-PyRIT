@@ -429,12 +429,18 @@ class MessageSendService:
                 if progress is not None:
                     progress.state = MessageSendState.PREPARING
                 with attack_result_id_scope(attack_result_id=attack_result_id):
+                    target_identifier = validated.target.get_identifier() if validated.target else None
+                    if not request.send:
+                        existing_metadata = await self._memory.get_conversation_metadata_async(
+                            conversation_id=request.target_conversation_id
+                        )
+                        target_identifier = existing_metadata.target_identifier if existing_metadata else None
                     await self._complete_memory_write_async(
                         partial(
                             self._memory.add_conversation_to_memory_async,
                             conversation=Conversation(
                                 conversation_id=request.target_conversation_id,
-                                target_identifier=validated.target.get_identifier() if validated.target else None,
+                                target_identifier=target_identifier,
                                 attack_result_id=attack_result_id,
                             ),
                         )

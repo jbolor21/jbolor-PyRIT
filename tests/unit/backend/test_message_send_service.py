@@ -1330,7 +1330,9 @@ class TestAddMessageGuards:
 
 @pytest.mark.usefixtures("patch_central_database")
 class TestStoreMessageOnly:
-    @pytest.mark.parametrize("role", ["user", "assistant", "tool"])
+    @pytest.mark.parametrize(
+        "role", ["system", "user", "assistant", "simulated_assistant", "tool", "simulated_tool", "developer"]
+    )
     async def test_store_message_only_batches_pieces_in_order_async(
         self,
         *,
@@ -1379,6 +1381,9 @@ class TestStoreMessageOnly:
             await service.add_message_async(attack_result_id=attack.attack_result_id, request=request)
 
         register.assert_awaited_once()
+        registered = register.call_args.kwargs["conversation"]
+        assert registered.target_identifier == target.get_identifier()
+        assert registered.attack_result_id == attack.attack_result_id
         batch.assert_awaited_once()
         submitted = batch.call_args.kwargs["message_pieces"]
         persisted = await sqlite_instance.get_message_pieces_async(conversation_id=conversation_id)
@@ -1423,8 +1428,9 @@ class TestStoreMessageOnly:
         pieces[1].id = pieces[0].id
         with (
             patch(
-                "pyrit.backend.mappers.attack_mappers.request_piece_to_pyrit_message_piece",
-                side_effect=pieces if failure == "batch" else [pieces[0], ValueError("invalid second piece")],
+                "pyrit.backend.services.message_send_service.request_to_pyrit_message",
+                return_value=Message(message_pieces=pieces),
+                side_effect=ValueError("invalid second piece") if failure == "construction" else None,
             ),
             patch.object(
                 sqlite_instance,

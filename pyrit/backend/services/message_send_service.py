@@ -20,7 +20,7 @@ from typing import Any
 
 from pydantic import PydanticUserError
 
-from pyrit.backend.mappers import request_piece_to_pyrit_message_piece, request_to_pyrit_message
+from pyrit.backend.mappers import request_to_pyrit_message
 from pyrit.backend.models.attacks import AddMessageRequest, ConverterConfigurationRequest, MessagePieceRequest
 from pyrit.backend.models.message_sends import (
     MessageSendConversation,
@@ -800,12 +800,10 @@ class MessageSendService:
                         progress=progress,
                     )
         else:
-            existing_metadata = await self._memory.get_conversation_metadata_async(conversation_id=msg_conversation_id)
             await self._store_message_only_async(
                 conversation_id=msg_conversation_id,
                 request=request,
                 sequence=sequence,
-                target_identifier=existing_metadata.target_identifier if existing_metadata else None,
                 applied_converter_identifiers=applied_converter_identifiers,
             )
 
@@ -1263,7 +1261,6 @@ class MessageSendService:
         request: AddMessageRequest,
         sequence: int,
         applied_converter_identifiers: dict[int, list[ConverterIdentifier]],
-        target_identifier: ComponentIdentifier | None = None,
     ) -> None:
         """Store message without sending (send=False)."""
         await self._persist_base64_pieces_async(request)
@@ -1273,7 +1270,6 @@ class MessageSendService:
                 conversation_id=conversation_id,
                 request=request,
                 sequence=sequence,
-                target_identifier=target_identifier,
                 applied_converter_identifiers=applied_converter_identifiers,
             )
         )
@@ -1284,25 +1280,14 @@ class MessageSendService:
         conversation_id: str,
         request: AddMessageRequest,
         sequence: int,
-        target_identifier: ComponentIdentifier | None,
         applied_converter_identifiers: dict[int, list[ConverterIdentifier]],
     ) -> None:
-        """Persist all pieces atomically; conversation registration is a separate write."""
-        pieces: list[MessagePiece] = []
-        for index, p in enumerate(request.pieces):
-            piece = request_piece_to_pyrit_message_piece(
-                piece=p,
-                role=request.role,
-                conversation_id=conversation_id,
-                sequence=sequence,
-            )
-            piece.set_simulated_role()
-            piece.converter_identifiers.extend(applied_converter_identifiers.get(index, []))
-            pieces.append(piece)
-        await self._memory.add_conversation_to_memory_async(
-            conversation=Conversation(conversation_id=conversation_id, target_identifier=target_identifier)
-        )
-        await self._memory.add_message_pieces_to_memory_async(message_pieces=pieces)
+        """Persist all pieces atomically."""
+        message = request_to_pyrit_message(request=request, conversation_id=conversation_id, sequence=sequence)
+        message.set_simulated_role()
+        for index, identifiers in applied_converter_identifiers.items():
+            message.message_pieces[index].converter_identifiers.extend(identifiers)
+        await self._memory.add_message_pieces_to_memory_async(message_pieces=message.message_pieces)
 
     @staticmethod
     async def _complete_memory_write_async(write: Callable[[], Coroutine[Any, Any, None]]) -> None:
